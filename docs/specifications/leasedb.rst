@@ -69,9 +69,9 @@ updates to mutable shares.)
 Leases are no longer stored in shares. The same share format is used as
 before, but the lease slots are ignored, and are cleared when rewriting a
 mutable share. The new design also does not use lease renewal or cancel
-secrets. (They are accepted as parameters in the storage interface for
-backward compatibility, but are ignored. Cancel secrets were already ignored
-due to the fix for `#1528`_.)
+secrets. (They are accepted as parameters in the storage protocol interfaces
+for backward compatibility, but are ignored. Cancel secrets were already
+ignored due to the fix for `#1528`_.)
 
 The new design needs to be fail-safe in the sense that if the lease database
 is lost or corruption is detected, no share data will be lost (even though
@@ -91,22 +91,22 @@ may update the state of the share and/or the leasedb.
 
 The accounting crawler performs the following functions:
 
-- delete the objects containing unleased shares — that is, shares that have
+- Delete the objects containing unleased shares — that is, shares that have
   stable entries in the leasedb but no current leases (see below for the
   definition of "stable" entries).
 
-- discover shares that have been manually added to storage, via ``scp`` or
+- Discover shares that have been manually added to storage, via ``scp`` or
   some other out-of-band means.
 
-- discover shares that are present when a storage server is upgraded to
+- Discover shares that are present when a storage server is upgraded to
   version v1.11.0 or later from a previous version, and give them "starter
   leases".
 
-- recover from a situation where the leasedb is lost or detectably
+- Recover from a situation where the leasedb is lost or detectably
   corrupted. This is handled in the same way as upgrading from a previous
   version.
 
-- detect shares that have unexpectedly disappeared from storage.  The
+- Detect shares that have unexpectedly disappeared from storage.  The
   disappearance of a share is logged, and its entry and leases are removed
   from the leasedb.
 
@@ -152,11 +152,11 @@ indicator, what that value means, and transitions between states, for any
 shnum) in this server's leasedb. This is the initial state.
 
 **STATE_COMING**: The share is being created or (if a mutable share)
-updated. The storage objects may have been at least partially written, but
+updated. The store objects may have been at least partially written, but
 the storage server doesn't have confirmation that they have all been
 completely written.
 
-**STATE_STABLE**: The storage objects have been completely written and are
+**STATE_STABLE**: The store objects have been completely written and are
 not in the process of being modified or deleted by the storage server. (It
 could have been modified or deleted behind the back of the storage server,
 but if it has, the server has not noticed that yet.) The share may or may not
@@ -169,7 +169,7 @@ State transitions
 
 • **STATE_GOING** → **NONE**
 
-    trigger: The storage server gains confidence that all storage objects for
+    trigger: The storage server gains confidence that all store objects for
     the share have been removed.
 
     implementation:
@@ -178,7 +178,7 @@ State transitions
 
 • **STATE_STABLE** → **NONE**
 	
-    trigger: The accounting crawler noticed that all the storage objects for
+    trigger: The accounting crawler noticed that all the store objects for
     this share are gone.
 
     implementation:
@@ -187,7 +187,7 @@ State transitions
 
 • **NONE** → **STATE_COMING**
 
-    trigger: A new share is being created, as explicitly signalled by a
+    triggers: A new share is being created, as explicitly signalled by a
     client invoking a creation command, *or* the accounting crawler discovers
     an incomplete share.
 
@@ -211,7 +211,7 @@ State transitions
 
 • **STATE_COMING** → **STATE_STABLE**
 
-    trigger: All storage objects have been written.
+    trigger: All store objects have been written.
 
     implementation:
 
@@ -220,7 +220,7 @@ State transitions
 
 • **NONE** → **STATE_STABLE**
 
-    trigger: the accounting crawler discovers a complete share.
+    trigger: The accounting crawler discovers a complete share.
 
     implementation:
 
@@ -228,21 +228,21 @@ State transitions
 
 • **STATE_STABLE** → **STATE_GOING**
 
-    trigger: the share should be deleted because it is unleased
+    trigger: The share should be deleted because it is unleased.
 
     implementation:
 
-    1. change the state value of this entry in the leasedb from
-       **STATE_STABLE** to **STATE_GOING**
-    
-    2. initiate removal of the storage objects
+    1. Change the state value of this entry in the leasedb from
+       **STATE_STABLE** to **STATE_GOING**.
+
+    2. Initiate removal of the store objects.
 
 
 The following constraints are needed to avoid race conditions:
 
 - While a share is being deleted (entry in **STATE_GOING**), we do not accept
   any requests to recreate it. That would result in add and delete requests
-  for storage objects being sent concurrently, with undefined results.
+  for store objects being sent concurrently, with undefined results.
 
 - While a share is being added or modified (entry in **STATE_COMING**), we
   treat it as leased.
@@ -253,15 +253,15 @@ The following constraints are needed to avoid race conditions:
 Unresolved design issues
 ------------------------
 
-- What happens if a write to storage objects for a new share fails
+- What happens if a write to store objects for a new share fails
   permanently?  If we delete the share entry, then the accounting crawler
-  will eventually get to those storage objects and see that their lengths
+  will eventually get to those store objects and see that their lengths
   are inconsistent with the length in the container header. This will cause
   the share to be treated as corrupted. Should we instead attempt to
   delete those objects immediately? If so, do we need a direct
   **STATE_COMING** → **STATE_GOING** transition to handle this case?
 
-- What happens if only some storage objects for a share disappear
+- What happens if only some store objects for a share disappear
   unexpectedly?  This case is similar to only some objects having been
   written when we get an unrecoverable error during creation of a share, but
   perhaps we want to treat it differently in order to preserve information
