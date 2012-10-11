@@ -259,7 +259,7 @@ Unresolved design issues
   are inconsistent with the length in the container header. This will cause
   the share to be treated as corrupted. Should we instead attempt to
   delete those objects immediately? If so, do we need a direct
-  STATE_COMING → STATE_GOING transition to handle this case?
+  **STATE_COMING** → **STATE_GOING** transition to handle this case?
 
 - What happens if only some storage objects for a share disappear
   unexpectedly?  This case is similar to only some objects having been
