@@ -39,7 +39,12 @@ class Marker:
     pass
 
 class FakeAccount:
-    pass
+    def add_share(self, storage_index, shnum, used_space, sharetype, commit=True):
+        pass
+    def add_or_renew_default_lease(self, storage_index, shnum, commit=True):
+        pass
+    def mark_share_as_stable(self, storage_index, shnum, used_space, commit=True):
+        pass
 
 class FakeCanary:
     def __init__(self, ignore_disconnectors=False):
