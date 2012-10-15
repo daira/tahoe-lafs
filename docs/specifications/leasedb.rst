@@ -91,6 +91,10 @@ may update the state of the share and/or the leasedb.
 
 The accounting crawler performs the following functions:
 
+- Remove leases that are past their expiration time. (Currently, this is
+  done automatically before deleting shares, but we plan to allow expiration
+  to be performed separately for individual accounts in future.)
+
 - Delete the objects containing unleased shares — that is, shares that have
   stable entries in the leasedb but no current leases (see below for the
   definition of "stable" entries).
