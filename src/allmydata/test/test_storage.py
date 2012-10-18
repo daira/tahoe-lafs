@@ -2894,17 +2894,16 @@ class BucketCounterTest(unittest.TestCase, CrawlerTestMixin, ReallyEqualMixin):
             self.failUnlessIn(" Current crawl ", s)
             self.failUnlessIn(" (next work in ", s)
 
-            d2 = ss.bucket_counter.set_hook('after_cycle')
-
-            def _after_first_cycle(cycle):
-                self.failUnlessEqual(cycle, 0)
-                progress = ss.bucket_counter.get_progress()
-                self.failUnlessReallyEqual(progress["cycle-in-progress"], False)
-            d2.addCallback(_after_first_cycle)
-            return d2
+            return ss.bucket_counter.set_hook('after_cycle')
         d.addCallback(_after_first_prefix)
 
+        def _after_first_cycle(cycle):
+            self.failUnlessEqual(cycle, 0)
+            progress = ss.bucket_counter.get_progress()
+            self.failUnlessReallyEqual(progress["cycle-in-progress"], False)
+        d.addCallback(_after_first_cycle)
         d.addBoth(self._wait_for_yield, ss.bucket_counter)
+
         def _after_yield(ign):
             html = w.renderSynchronously()
             s = remove_tags(html)
@@ -2938,20 +2937,19 @@ class BucketCounterTest(unittest.TestCase, CrawlerTestMixin, ReallyEqualMixin):
             state["storage-index-samples"]["bogusprefix!"] = (-12, [])
             ss.bucket_counter.save_state()
 
-            d2 = ss.bucket_counter.set_hook('after_cycle')
-
-            def _after_first_cycle(cycle):
-                self.failUnlessEqual(cycle, 0)
-                progress = ss.bucket_counter.get_progress()
-                self.failUnlessReallyEqual(progress["cycle-in-progress"], False)
-
-                s = ss.bucket_counter.get_state()
-                self.failIf(-12 in s["bucket-counts"], s["bucket-counts"].keys())
-                self.failIf("bogusprefix!" in s["storage-index-samples"],
-                            s["storage-index-samples"].keys())
-            d2.addCallback(_after_first_cycle)
-            return d2
+            return ss.bucket_counter.set_hook('after_cycle')
         d.addCallback(_after_first_prefix)
+
+        def _after_first_cycle(cycle):
+            self.failUnlessEqual(cycle, 0)
+            progress = ss.bucket_counter.get_progress()
+            self.failUnlessReallyEqual(progress["cycle-in-progress"], False)
+
+            s = ss.bucket_counter.get_state()
+            self.failIf(-12 in s["bucket-counts"], s["bucket-counts"].keys())
+            self.failIf("bogusprefix!" in s["storage-index-samples"],
+                        s["storage-index-samples"].keys())
+        d.addCallback(_after_first_cycle)
         d.addBoth(self._wait_for_yield, ss.bucket_counter)
         return d
 
@@ -2976,16 +2974,15 @@ class BucketCounterTest(unittest.TestCase, CrawlerTestMixin, ReallyEqualMixin):
             s = remove_tags(html)
             self.failUnlessIn("complete (next work", s)
 
-            d2 = ss.bucket_counter.set_hook('after_prefix')
-
-            def _check_2(prefix2):
-                # an ETA based upon elapsed time should be available.
-                html = w.renderSynchronously()
-                s = remove_tags(html)
-                self.failUnlessIn("complete (ETA ", s)
-            d2.addCallback(_check_2)
-            return d2
+            return ss.bucket_counter.set_hook('after_prefix')
         d.addCallback(_check_1)
+
+        def _check_2(prefix2):
+            # an ETA based upon elapsed time should be available.
+            html = w.renderSynchronously()
+            s = remove_tags(html)
+            self.failUnlessIn("complete (ETA ", s)
+        d.addCallback(_check_2)
         d.addBoth(self._wait_for_yield, ss.bucket_counter)
         return d
 
