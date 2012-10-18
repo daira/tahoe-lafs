@@ -2850,6 +2850,21 @@ class CrawlerTestMixin:
         d.addCallback(lambda ign: res)
         return d
 
+    def _after_prefix(self, prefix, target_prefix, crawler):
+        """
+        Wait for the crawler to reach a given target_prefix. Return a deferred
+        for the crawler state at that point.
+        """
+        if prefix != target_prefix:
+            d = crawler.set_hook('after_prefix')
+            d.addCallback(self._after_prefix, target_prefix, crawler)
+            return d
+
+        crawler.save_state()
+        state = crawler.get_state()
+        self.failUnlessEqual(prefix, state["last-complete-prefix"])
+        return defer.succeed(state)
+
 
 class BucketCounterTest(unittest.TestCase, CrawlerTestMixin, ReallyEqualMixin):
 
@@ -3067,8 +3082,6 @@ class AccountingCrawlerTest(unittest.TestCase, pollmixin.PollMixin, CrawlerTestM
         lc.slow_start = 0
         lc.cpu_slice = 500
 
-        d = lc.set_hook('after_prefix')
-
         webstatus = StorageStatus(ss)
 
         # create a few shares, with some leases on them
@@ -3096,18 +3109,9 @@ class AccountingCrawlerTest(unittest.TestCase, pollmixin.PollMixin, CrawlerTestM
 
         DAY = 24*60*60
 
-        # now examine the state right after the first prefix has been
-        # processed.
-        def _after_first_prefix(prefix):
-            lc.save_state()
-            state = lc.get_state()
-            self.failUnlessEqual(prefix, state["last-complete-prefix"])
-            if prefix != 'aa':
-                d2 = lc.set_hook('after_prefix')
-                d2.addCallback(_after_first_prefix)
-                return d2
-            #print state
-
+        # now examine the state right after the 'aa' prefix has been processed.
+        d = self._after_prefix(None, 'aa', lc)
+        def _after_aa_prefix(state):
             self.failUnlessIn("cycle-to-date", state)
             self.failUnlessIn("estimated-remaining-cycle", state)
             self.failUnlessIn("estimated-current-cycle", state)
@@ -3134,7 +3138,7 @@ class AccountingCrawlerTest(unittest.TestCase, pollmixin.PollMixin, CrawlerTestM
             self.failUnless(sr2["examined-buckets"] > 0, sr2["examined-buckets"])
             self.failUnless(sr2["examined-shares"] > 0, sr2["examined-shares"])
             self.failIfEqual(sr2["actual-shares"], None)
-        d.addCallback(_after_first_prefix)
+        d.addCallback(_after_aa_prefix)
 
         d.addCallback(lambda ign: self.render1(webstatus))
         def _in_cycle(html):
@@ -3145,66 +3149,65 @@ class AccountingCrawlerTest(unittest.TestCase, pollmixin.PollMixin, CrawlerTestM
                               "0 shares, 0 sharesets (0 mutable / 0 immutable), "
                               "0 B (0 B / 0 B)", s)
 
-            d2 = lc.set_hook('after_cycle')
-
-            def _after_first_cycle(cycle):
-                # After the first cycle, nothing should have been removed.
-                self.failUnlessEqual(cycle, 0)
-                progress = lc.get_progress()
-                self.failUnlessReallyEqual(progress["cycle-in-progress"], False)
-
-                s = lc.get_state()
-                self.failIf("cycle-to-date" in s)
-                self.failIf("estimated-remaining-cycle" in s)
-                self.failIf("estimated-current-cycle" in s)
-                last = s["history"][0]
-                self.failUnlessIn("cycle-start-finish-times", last)
-                self.failUnlessEqual(type(last["cycle-start-finish-times"]), tuple)
-                self.failUnlessEqual(last["expiration-enabled"], False)
-                self.failUnlessIn("configured-expiration-mode", last)
-
-                self.failUnlessIn("lease-age-histogram", last)
-                lah = last["lease-age-histogram"]
-                self.failUnlessEqual(type(lah), list)
-                self.failUnlessEqual(len(lah), 1)
-                self.failUnlessEqual(lah, [ (0.0, DAY, 6) ] )
-
-                #self.failUnlessEqual(last["leases-per-share-histogram"], {1: 2, 2: 2})
-                self.failUnlessEqual(last["corrupt-shares"], [])
-
-                rec = last["space-recovered"]
-                self.failUnlessEqual(rec["examined-buckets"], 4)
-                self.failUnlessEqual(rec["examined-shares"], 4)
-                self.failUnlessEqual(rec["actual-buckets"], 0)
-                self.failUnlessEqual(rec["actual-shares"], 0)
-                self.failUnlessEqual(rec["actual-diskbytes"], 0)
-
-                def count_leases(si):
-                    return len(ss.get_leases(si))
-                self.failUnlessEqual(count_leases(immutable_si_0), 1)
-                self.failUnlessEqual(count_leases(immutable_si_1), 2)
-                self.failUnlessEqual(count_leases(mutable_si_2), 1)
-                self.failUnlessEqual(count_leases(mutable_si_3), 2)
-            d2.addCallback(_after_first_cycle)
-
-            d2.addCallback(lambda ign: self.render1(webstatus))
-            def _check_html(html):
-                s = remove_tags(html)
-                self.failUnlessIn("recovered: 0 shares, 0 sharesets "
-                                  "(0 mutable / 0 immutable), 0 B (0 B / 0 B) ", s)
-                self.failUnlessIn("and saw a total of 4 shares, 4 sharesets "
-                                  "(2 mutable / 2 immutable),", s)
-                self.failUnlessIn("but expiration was not enabled", s)
-            d2.addCallback(_check_html)
-
-            d2.addCallback(lambda ign: self.render_json(webstatus))
-            def _check_json(json):
-                data = simplejson.loads(json)
-                self.failUnlessIn("lease-checker", data)
-                self.failUnlessIn("lease-checker-progress", data)
-            d2.addCallback(_check_json)
-            return d2
+            return lc.set_hook('after_cycle')
         d.addCallback(_in_cycle)
+
+        def _after_first_cycle(cycle):
+            # After the first cycle, nothing should have been removed.
+            self.failUnlessEqual(cycle, 0)
+            progress = lc.get_progress()
+            self.failUnlessReallyEqual(progress["cycle-in-progress"], False)
+
+            s = lc.get_state()
+            self.failIf("cycle-to-date" in s)
+            self.failIf("estimated-remaining-cycle" in s)
+            self.failIf("estimated-current-cycle" in s)
+            last = s["history"][0]
+            self.failUnlessIn("cycle-start-finish-times", last)
+            self.failUnlessEqual(type(last["cycle-start-finish-times"]), tuple)
+            self.failUnlessEqual(last["expiration-enabled"], False)
+            self.failUnlessIn("configured-expiration-mode", last)
+
+            self.failUnlessIn("lease-age-histogram", last)
+            lah = last["lease-age-histogram"]
+            self.failUnlessEqual(type(lah), list)
+            self.failUnlessEqual(len(lah), 1)
+            self.failUnlessEqual(lah, [ (0.0, DAY, 6) ] )
+
+            #self.failUnlessEqual(last["leases-per-share-histogram"], {1: 2, 2: 2})
+            self.failUnlessEqual(last["corrupt-shares"], [])
+
+            rec = last["space-recovered"]
+            self.failUnlessEqual(rec["examined-buckets"], 4)
+            self.failUnlessEqual(rec["examined-shares"], 4)
+            self.failUnlessEqual(rec["actual-buckets"], 0)
+            self.failUnlessEqual(rec["actual-shares"], 0)
+            self.failUnlessEqual(rec["actual-diskbytes"], 0)
+
+            def count_leases(si):
+                return len(ss.get_leases(si))
+            self.failUnlessEqual(count_leases(immutable_si_0), 1)
+            self.failUnlessEqual(count_leases(immutable_si_1), 2)
+            self.failUnlessEqual(count_leases(mutable_si_2), 1)
+            self.failUnlessEqual(count_leases(mutable_si_3), 2)
+        d.addCallback(_after_first_cycle)
+
+        d.addCallback(lambda ign: self.render1(webstatus))
+        def _check_html(html):
+            s = remove_tags(html)
+            self.failUnlessIn("recovered: 0 shares, 0 sharesets "
+                              "(0 mutable / 0 immutable), 0 B (0 B / 0 B) ", s)
+            self.failUnlessIn("and saw a total of 4 shares, 4 sharesets "
+                              "(2 mutable / 2 immutable),", s)
+            self.failUnlessIn("but expiration was not enabled", s)
+        d.addCallback(_check_html)
+
+        d.addCallback(lambda ign: self.render_json(webstatus))
+        def _check_json(json):
+            data = simplejson.loads(json)
+            self.failUnlessIn("lease-checker", data)
+            self.failUnlessIn("lease-checker-progress", data)
+        d.addCallback(_check_json)
         d.addBoth(self._wait_for_yield, lc)
         return d
 
