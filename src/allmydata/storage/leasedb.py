@@ -353,8 +353,8 @@ class LeaseDB:
         self._cursor.execute("SELECT `cycle` FROM `crawler_history`")
         rows = self._cursor.fetchall()
         if len(rows) >= self.RETAINED_HISTORY_ENTRIES:
-            first_cycle_to_retain = list(sorted(rows))[-(self.RETAINED_HISTORY_ENTRIES - 1)]
-            self._cursor.execute("DELETE FROM `crawler_history` WHERE cycle < ?",
+            first_cycle_to_retain = list(sorted(rows))[-(self.RETAINED_HISTORY_ENTRIES - 1)][0]
+            self._cursor.execute("DELETE FROM `crawler_history` WHERE `cycle` < ?",
                                  (first_cycle_to_retain,))
 
         self._cursor.execute("INSERT OR REPLACE INTO `crawler_history` VALUES (?,?)",
