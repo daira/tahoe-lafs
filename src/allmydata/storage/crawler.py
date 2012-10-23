@@ -22,9 +22,9 @@ class ShareCrawler(HookMixin, service.MultiService):
     million files, which can take hours or days to read.
 
     Once the crawler starts a cycle, it will proceed at a rate limited by the
-    allowed_cpu_percentage= and cpu_slice= parameters: yielding the reactor
+    allowed_cpu_proportion= and cpu_slice= parameters: yielding the reactor
     after it has worked for 'cpu_slice' seconds, and not resuming right away,
-    always trying to use less than 'allowed_cpu_percentage'.
+    always trying to use less than 'allowed_cpu_proportion'.
 
     Once the crawler finishes a cycle, it will put off starting the next one
     long enough to ensure that 'minimum_cycle_time' elapses between the start
@@ -66,14 +66,14 @@ class ShareCrawler(HookMixin, service.MultiService):
 
     slow_start = 300 # don't start crawling for 5 minutes after startup
     # all three of these can be changed at any time
-    allowed_cpu_percentage = .10 # use up to 10% of the CPU, on average
+    allowed_cpu_proportion = .10 # use up to 10% of the CPU, on average
     cpu_slice = 1.0 # use up to 1.0 seconds before yielding
     minimum_cycle_time = 300 # don't run a cycle faster than this
 
-    def __init__(self, server, statefile, allowed_cpu_percentage=None):
+    def __init__(self, server, statefile, allowed_cpu_proportion=None):
         service.MultiService.__init__(self)
-        if allowed_cpu_percentage is not None:
-            self.allowed_cpu_percentage = allowed_cpu_percentage
+        if allowed_cpu_proportion is not None:
+            self.allowed_cpu_proportion = allowed_cpu_proportion
         self.server = server
         self.sharedir = server.sharedir
         self.statefile = statefile
@@ -294,7 +294,7 @@ class ShareCrawler(HookMixin, service.MultiService):
             # this_slice/(this_slice+sleep_time) = percentage
             # this_slice/percentage = this_slice+sleep_time
             # sleep_time = (this_slice/percentage) - this_slice
-            sleep_time = (this_slice / self.allowed_cpu_percentage) - this_slice
+            sleep_time = (this_slice / self.allowed_cpu_proportion) - this_slice
             # if the math gets weird, or a timequake happens, don't sleep
             # forever. Note that this means that, while a cycle is running, we
             # will process at least one bucket every 5 minutes, no matter how
@@ -302,7 +302,7 @@ class ShareCrawler(HookMixin, service.MultiService):
             sleep_time = max(0.0, min(sleep_time, 299))
             if finished_cycle:
                 # how long should we sleep between cycles? Don't run faster than
-                # allowed_cpu_percentage says, but also run faster than
+                # allowed_cpu_proportion says, but also run faster than
                 # minimum_cycle_time
                 self.sleeping_between_cycles = True
                 sleep_time = max(sleep_time, self.minimum_cycle_time)
@@ -433,7 +433,7 @@ class ShareCrawler(HookMixin, service.MultiService):
         process_bucket() method. This will reduce the maximum duplicated work
         to one bucket per SIGKILL. It will also add overhead, probably 1-20ms
         per bucket (and some disk writes), which will count against your
-        allowed_cpu_percentage, and which may be considerable if
+        allowed_cpu_proportion, and which may be considerable if
         process_bucket() runs quickly.
 
         This method is for subclasses to override. No upcall is necessary.

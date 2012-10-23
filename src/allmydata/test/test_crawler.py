@@ -49,7 +49,7 @@ class PacedCrawler(ShareCrawler):
 
 class ConsumingCrawler(ShareCrawler):
     cpu_slice = 0.5
-    allowed_cpu_percentage = 0.5
+    allowed_cpu_proportion = 0.5
     minimum_cycle_time = 0
     slow_start = 0
 
@@ -118,7 +118,7 @@ class Basic(unittest.TestCase, StallMixin, pollmixin.PollMixin):
         sis = [self.write(i, ss, serverid) for i in range(10)]
         statefile = os.path.join(self.basedir, "statefile")
 
-        c = BucketEnumeratingCrawler(ss, statefile, allowed_cpu_percentage=.1)
+        c = BucketEnumeratingCrawler(ss, statefile, allowed_cpu_proportion=.1)
         c.load_state()
 
         c.start_current_prefix(time.time())
