@@ -3587,7 +3587,10 @@ class AccountingCrawlerTest(unittest.TestCase, pollmixin.PollMixin, CrawlerTestM
         ss = server.get_accountant().get_anonymous_account()
 
         # finish as fast as possible
+        RETAINED = 2
+        CYCLES = 4
         lc = server.get_accounting_crawler()
+        lc._leasedb.retained_history_entries = RETAINED
         lc.slow_start = 0
         lc.cpu_slice = 500
         lc.allowed_cpu_proportion = 1.0
@@ -3600,16 +3603,15 @@ class AccountingCrawlerTest(unittest.TestCase, pollmixin.PollMixin, CrawlerTestM
 
         d = lc.set_hook('after_cycle')
         def _after_cycle(cycle):
-            print "CYCLE", cycle
-            if cycle < 15:
+            if cycle < CYCLES:
                 return lc.set_hook('after_cycle').addCallback(_after_cycle)
 
             state = lc.get_state()
             self.failUnlessIn("history", state)
             h = state["history"]
-            self.failUnlessEqual(len(h), 10)
-            self.failUnlessEqual(max(h.keys()), 15)
-            self.failUnlessEqual(min(h.keys()), 6)
+            self.failUnlessEqual(len(h), RETAINED)
+            self.failUnlessEqual(max(h.keys()), CYCLES)
+            self.failUnlessEqual(min(h.keys()), CYCLES-RETAINED+1)
         d.addCallback(_after_cycle)
         d.addBoth(self._wait_for_yield, lc)
         return d
