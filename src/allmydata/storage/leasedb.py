@@ -425,7 +425,8 @@ class AccountingCrawler(ShareCrawler):
         # now check the database for everything in this prefix
         db_sharemap = self._leasedb.get_shares_for_prefix(prefix)
         db_shares = set(db_sharemap)
-        print prefix, db_sharemap
+        if db_sharemap:
+            print prefix, db_sharemap
 
         rec = self.state["cycle-to-date"]["space-recovered"]
         sharesets = [set() for st in xrange(len(SHARETYPES))]
