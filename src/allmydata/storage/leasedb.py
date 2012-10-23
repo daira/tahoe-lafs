@@ -387,13 +387,16 @@ class LeaseDB:
 
 
 class AccountingCrawler(ShareCrawler):
-    """I manage a SQLite table of which leases are owned by which ownerid, to
-    support efficient calculation of total space used per ownerid. The
-    sharefiles (and their leaseinfo fields) is the canonical source: the
-    database is merely a speedup, generated/corrected periodically by this
-    crawler. The crawler both handles the initial DB creation, and fixes the
-    DB when changes have been made outside the storage-server's awareness
-    (e.g. when the admin deletes a sharefile with /bin/rm).
+    """
+    I perform the following functions:
+    - Remove leases that are past their expiration time.
+    - Delete objects containing unleased shares.
+    - Discover shares that have been manually added to storage.
+    - Discover shares that are present when a storage server is upgraded from
+      a pre-leasedb version, and give them "starter leases".
+    - Recover from a situation where the leasedb is lost or detectably
+      corrupted. This is handled in the same way as upgrading.
+    - Detect shares that have unexpectedly disappeared from storage.
     """
 
     slow_start = 7 # XXX #*60 # wait 7 minutes after startup
