@@ -3009,7 +3009,10 @@ class AccountingCrawlerTest(unittest.TestCase, pollmixin.PollMixin, CrawlerTestM
     def tearDown(self):
         return self.s.stopService()
 
-    def make_shares(self, ss):
+    def make_shares(self, server):
+        ss = server.get_accountant().get_anonymous_account()
+        ss2 = server.get_accountant().get_starter_account()
+
         def make(si):
             return (si, hashutil.tagged_hash("renew", si),
                     hashutil.tagged_hash("cancel", si))
@@ -3042,14 +3045,14 @@ class AccountingCrawlerTest(unittest.TestCase, pollmixin.PollMixin, CrawlerTestM
                                          1000, canary)
         w[0].remote_write(0, data)
         w[0].remote_close()
-        ss.remote_add_lease(immutable_si_1, rs1a, cs1a)
+        ss2.remote_add_lease(immutable_si_1, rs1a, cs1a)
 
         writev = ss.remote_slot_testv_and_readv_and_writev
         writev(mutable_si_2, (we2, rs2, cs2),
                {0: ([], [(0,data)], len(data))}, [])
         writev(mutable_si_3, (we3, rs3, cs3),
                {0: ([], [(0,data)], len(data))}, [])
-        ss.remote_add_lease(mutable_si_3, rs3a, cs3a)
+        ss2.remote_add_lease(mutable_si_3, rs3a, cs3a)
 
         self.sis = [immutable_si_0, immutable_si_1, mutable_si_2, mutable_si_3]
         self.renew_secrets = [rs0, rs1, rs1a, rs2, rs3, rs3a]
@@ -3070,7 +3073,7 @@ class AccountingCrawlerTest(unittest.TestCase, pollmixin.PollMixin, CrawlerTestM
         webstatus = StorageStatus(ss)
 
         # create a few shares, with some leases on them
-        self.make_shares(ss)
+        self.make_shares(server)
         [immutable_si_0, immutable_si_1, mutable_si_2, mutable_si_3] = self.sis
 
         # add a non-sharefile to exercise another code path
@@ -3215,7 +3218,7 @@ class AccountingCrawlerTest(unittest.TestCase, pollmixin.PollMixin, CrawlerTestM
         webstatus = StorageStatus(ss)
 
         # create a few shares, with some leases on them
-        self.make_shares(ss)
+        self.make_shares(server)
         [immutable_si_0, immutable_si_1, mutable_si_2, mutable_si_3] = self.sis
 
         def count_shares(si):
@@ -3334,7 +3337,7 @@ class AccountingCrawlerTest(unittest.TestCase, pollmixin.PollMixin, CrawlerTestM
         webstatus = StorageStatus(ss)
 
         # create a few shares, with some leases on them
-        self.make_shares(ss)
+        self.make_shares(server)
         [immutable_si_0, immutable_si_1, mutable_si_2, mutable_si_3] = self.sis
 
         def count_shares(si):
@@ -3453,7 +3456,7 @@ class AccountingCrawlerTest(unittest.TestCase, pollmixin.PollMixin, CrawlerTestM
 
         webstatus = StorageStatus(ss)
 
-        self.make_shares(ss)
+        self.make_shares(server)
         [immutable_si_0, immutable_si_1, mutable_si_2, mutable_si_3] = self.sis
         # set all leases to be expirable
         new_renewal_time = now - 3000
@@ -3513,7 +3516,7 @@ class AccountingCrawlerTest(unittest.TestCase, pollmixin.PollMixin, CrawlerTestM
 
         webstatus = StorageStatus(ss)
 
-        self.make_shares(ss)
+        self.make_shares(server)
         [immutable_si_0, immutable_si_1, mutable_si_2, mutable_si_3] = self.sis
         # set all leases to be expirable
         new_renewal_time = now - 3000
@@ -3584,7 +3587,6 @@ class AccountingCrawlerTest(unittest.TestCase, pollmixin.PollMixin, CrawlerTestM
         basedir = "storage/AccountingCrawler/limited_history"
         fileutil.make_dirs(basedir)
         server = StorageServer(basedir, "\x00" * 20)
-        ss = server.get_accountant().get_anonymous_account()
 
         # finish as fast as possible
         RETAINED = 2
@@ -3597,7 +3599,7 @@ class AccountingCrawlerTest(unittest.TestCase, pollmixin.PollMixin, CrawlerTestM
         lc.minimum_cycle_time = 0
 
         # create a few shares, with some leases on them
-        self.make_shares(ss)
+        self.make_shares(server)
 
         server.setServiceParent(self.s)
 
@@ -3620,14 +3622,13 @@ class AccountingCrawlerTest(unittest.TestCase, pollmixin.PollMixin, CrawlerTestM
         basedir = "storage/AccountingCrawler/unpredictable_future"
         fileutil.make_dirs(basedir)
         server = StorageServer(basedir, "\x00" * 20)
-        ss = server.get_accountant().get_anonymous_account()
 
         # make it start sooner than usual.
         lc = server.get_accounting_crawler()
         lc.slow_start = 0
         lc.cpu_slice = -1.0 # stop quickly
 
-        self.make_shares(ss)
+        self.make_shares(server)
 
         server.setServiceParent(self.s)
 
@@ -3678,7 +3679,7 @@ class AccountingCrawlerTest(unittest.TestCase, pollmixin.PollMixin, CrawlerTestM
         lc.cpu_slice = 500
 
         # create a few shares, with some leases on them
-        self.make_shares(ss)
+        self.make_shares(server)
 
         # now corrupt one, and make sure the lease-checker keeps going
         [immutable_si_0, immutable_si_1, mutable_si_2, mutable_si_3] = self.sis
