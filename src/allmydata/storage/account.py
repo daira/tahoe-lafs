@@ -212,6 +212,9 @@ class Account(Referenceable):
     def get_bucket_counter(self):
         return self.server.get_bucket_counter()
 
+    def get_nodeid(self):
+        return self.server.get_nodeid()
+
     # used by tests
 
     def _get_sharedir(self):
