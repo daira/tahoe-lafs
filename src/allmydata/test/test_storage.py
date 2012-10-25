@@ -3149,8 +3149,9 @@ class AccountingCrawlerTest(unittest.TestCase, pollmixin.PollMixin, CrawlerTestM
             self.failIf("estimated-remaining-cycle" in s)
             self.failIf("estimated-current-cycle" in s)
             last = s["history"][0]
+            self.failUnlessEqual(type(last), dict, repr(last))
             self.failUnlessIn("cycle-start-finish-times", last)
-            self.failUnlessEqual(type(last["cycle-start-finish-times"]), tuple)
+            self.failUnlessEqual(type(last["cycle-start-finish-times"]), list, repr(last))
             self.failUnlessEqual(last["expiration-enabled"], False)
             self.failUnlessIn("configured-expiration-mode", last)
 
@@ -3158,7 +3159,7 @@ class AccountingCrawlerTest(unittest.TestCase, pollmixin.PollMixin, CrawlerTestM
             lah = last["lease-age-histogram"]
             self.failUnlessEqual(type(lah), list)
             self.failUnlessEqual(len(lah), 1)
-            self.failUnlessEqual(lah, [ (0.0, DAY, 6) ] )
+            self.failUnlessEqual(tuple(lah[0]), (0.0, DAY, 6) )
 
             #self.failUnlessEqual(last["leases-per-share-histogram"], {1: 2, 2: 2})
             self.failUnlessEqual(last["corrupt-shares"], [])

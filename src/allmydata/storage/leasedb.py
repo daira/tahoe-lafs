@@ -363,7 +363,8 @@ class LeaseDB:
     def get_history(self):
         self._cursor.execute("SELECT `cycle`,`json` FROM `crawler_history`")
         rows = self._cursor.fetchall()
-        return dict(rows)
+        decoded = [(row[0], simplejson.loads(row[1])) for row in rows]
+        return dict(decoded)
 
     def get_account_creation_time(self, owner_num):
         self._cursor.execute("SELECT `creation_time` from `accounts`"
