@@ -299,7 +299,7 @@ class LeaseDB:
                                      (renewal_time, expiration_time, leaseid))
             else:
                 self._cursor.execute("INSERT INTO `leases` VALUES (?,?,?,?,?,?)",
-                                     (None, si_s, shnum, ownerid, renewal_time, expiration_time))
+                                     (None, si_s, found_shnum, ownerid, renewal_time, expiration_time))
 
     def get_leases(self, storage_index, ownerid):
         si_s = si_b2a(storage_index)
