@@ -541,7 +541,6 @@ class Server(unittest.TestCase):
         del writers3
         self.failUnlessEqual(len(ss.server._active_writers), 0)
         ss.disownServiceParent()
-        ss.server.disownServiceParent()
         del ss
 
     def test_seek(self):
