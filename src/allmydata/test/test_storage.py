@@ -3064,6 +3064,7 @@ class AccountingCrawlerTest(unittest.TestCase, pollmixin.PollMixin, CrawlerTestM
         ep = ExpirationPolicy(enabled=False)
         server = StorageServer(basedir, "\x00" * 20, expiration_policy=ep)
         ss = server.get_accountant().get_anonymous_account()
+        ss2 = server.get_accountant().get_starter_account()
 
         # finish as fast as possible
         lc = server.get_accounting_crawler()
@@ -3174,11 +3175,11 @@ class AccountingCrawlerTest(unittest.TestCase, pollmixin.PollMixin, CrawlerTestM
             self.failUnlessEqual(rec["actual-diskbytes"], 0)
 
             def count_leases(si):
-                return len(ss.get_leases(si))
-            self.failUnlessEqual(count_leases(immutable_si_0), 1)
-            self.failUnlessEqual(count_leases(immutable_si_1), 2)
-            self.failUnlessEqual(count_leases(mutable_si_2), 1)
-            self.failUnlessEqual(count_leases(mutable_si_3), 2)
+                return (len(ss.get_leases(si)), len(ss2.get_leases(si)))
+            self.failUnlessEqual(count_leases(immutable_si_0), (1, 0))
+            self.failUnlessEqual(count_leases(immutable_si_1), (1, 1))
+            self.failUnlessEqual(count_leases(mutable_si_2), (1, 0))
+            self.failUnlessEqual(count_leases(mutable_si_3), (1, 1))
         d.addCallback(_after_first_cycle)
 
         d.addCallback(lambda ign: self.render1(webstatus))
@@ -3226,16 +3227,16 @@ class AccountingCrawlerTest(unittest.TestCase, pollmixin.PollMixin, CrawlerTestM
         def _get_sharefile(si):
             return list(ss._iter_share_files(si))[0]
         def count_leases(si):
-            return len(ss.get_leases(si))
+            return (len(ss.get_leases(si)), len(ss2.get_leases(si)))
 
         self.failUnlessEqual(count_shares(immutable_si_0), 1)
-        self.failUnlessEqual(count_leases(immutable_si_0), 1)
+        self.failUnlessEqual(count_leases(immutable_si_0), (1, 0))
         self.failUnlessEqual(count_shares(immutable_si_1), 1)
-        self.failUnlessEqual(count_leases(immutable_si_1), 2)
+        self.failUnlessEqual(count_leases(immutable_si_1), (1, 1))
         self.failUnlessEqual(count_shares(mutable_si_2), 1)
-        self.failUnlessEqual(count_leases(mutable_si_2), 1)
+        self.failUnlessEqual(count_leases(mutable_si_2), (1, 0))
         self.failUnlessEqual(count_shares(mutable_si_3), 1)
-        self.failUnlessEqual(count_leases(mutable_si_3), 2)
+        self.failUnlessEqual(count_leases(mutable_si_3), (1, 1))
 
         # artificially crank back the expiration time on the first lease of
         # each share, to make it look like it expired already (age=1000s).
@@ -3279,10 +3280,10 @@ class AccountingCrawlerTest(unittest.TestCase, pollmixin.PollMixin, CrawlerTestM
         def _after_first_cycle(ignored):
             self.failUnlessEqual(count_shares(immutable_si_0), 0)
             self.failUnlessEqual(count_shares(immutable_si_1), 1)
-            self.failUnlessEqual(count_leases(immutable_si_1), 1)
+            self.failUnlessEqual(count_leases(immutable_si_1), (1, 0))
             self.failUnlessEqual(count_shares(mutable_si_2), 0)
             self.failUnlessEqual(count_shares(mutable_si_3), 1)
-            self.failUnlessEqual(count_leases(mutable_si_3), 1)
+            self.failUnlessEqual(count_leases(mutable_si_3), (1, 0))
 
             s = lc.get_state()
             last = s["history"][0]
@@ -3345,16 +3346,16 @@ class AccountingCrawlerTest(unittest.TestCase, pollmixin.PollMixin, CrawlerTestM
         def _get_sharefile(si):
             return list(ss._iter_share_files(si))[0]
         def count_leases(si):
-            return len(ss.get_leases(si))
+            return (len(ss.get_leases(si)), len(ss2.get_leases(si)))
 
         self.failUnlessEqual(count_shares(immutable_si_0), 1)
-        self.failUnlessEqual(count_leases(immutable_si_0), 1)
+        self.failUnlessEqual(count_leases(immutable_si_0), (1, 0))
         self.failUnlessEqual(count_shares(immutable_si_1), 1)
-        self.failUnlessEqual(count_leases(immutable_si_1), 2)
+        self.failUnlessEqual(count_leases(immutable_si_1), (1, 1))
         self.failUnlessEqual(count_shares(mutable_si_2), 1)
-        self.failUnlessEqual(count_leases(mutable_si_2), 1)
+        self.failUnlessEqual(count_leases(mutable_si_2), (1, 0))
         self.failUnlessEqual(count_shares(mutable_si_3), 1)
-        self.failUnlessEqual(count_leases(mutable_si_3), 2)
+        self.failUnlessEqual(count_leases(mutable_si_3), (1, 1))
 
         # artificially crank back the renewal time on the first lease of each
         # share to 3000s ago, and set the expiration time to 31 days later.
@@ -3400,10 +3401,10 @@ class AccountingCrawlerTest(unittest.TestCase, pollmixin.PollMixin, CrawlerTestM
         def _after_first_cycle(ignored):
             self.failUnlessEqual(count_shares(immutable_si_0), 0)
             self.failUnlessEqual(count_shares(immutable_si_1), 1)
-            self.failUnlessEqual(count_leases(immutable_si_1), 1)
+            self.failUnlessEqual(count_leases(immutable_si_1), (1, 0))
             self.failUnlessEqual(count_shares(mutable_si_2), 0)
             self.failUnlessEqual(count_shares(mutable_si_3), 1)
-            self.failUnlessEqual(count_leases(mutable_si_3), 1)
+            self.failUnlessEqual(count_leases(mutable_si_3), (1, 0))
 
             s = lc.get_state()
             last = s["history"][0]
@@ -3467,7 +3468,7 @@ class AccountingCrawlerTest(unittest.TestCase, pollmixin.PollMixin, CrawlerTestM
         def _get_sharefile(si):
             return list(ss._iter_share_files(si))[0]
         def count_leases(si):
-            return len(ss.get_leases(si))
+            return (len(ss.get_leases(si)), len(ss2.get_leases(si)))
 
         ss.add_or_renew_lease(immutable_si_0,  0, new_renewal_time, new_expiration_time)
 
@@ -3486,9 +3487,9 @@ class AccountingCrawlerTest(unittest.TestCase, pollmixin.PollMixin, CrawlerTestM
             self.failUnlessEqual(count_shares(immutable_si_0), 0)
             self.failUnlessEqual(count_shares(immutable_si_1), 0)
             self.failUnlessEqual(count_shares(mutable_si_2), 1)
-            self.failUnlessEqual(count_leases(mutable_si_2), 1)
+            self.failUnlessEqual(count_leases(mutable_si_2), (1, 0))
             self.failUnlessEqual(count_shares(mutable_si_3), 1)
-            self.failUnlessEqual(count_leases(mutable_si_3), 2)
+            self.failUnlessEqual(count_leases(mutable_si_3), (1, 1))
         d.addCallback(_after_first_cycle)
 
         d.addCallback(lambda ign: self.render1(webstatus))
@@ -3527,7 +3528,7 @@ class AccountingCrawlerTest(unittest.TestCase, pollmixin.PollMixin, CrawlerTestM
         def _get_sharefile(si):
             return list(ss._iter_share_files(si))[0]
         def count_leases(si):
-            return len(ss.get_leases(si))
+            return (len(ss.get_leases(si)), len(ss2.get_leases(si)))
 
         ss.add_or_renew_lease(immutable_si_0,  0, new_renewal_time, new_expiration_time)
 
@@ -3544,9 +3545,9 @@ class AccountingCrawlerTest(unittest.TestCase, pollmixin.PollMixin, CrawlerTestM
         d = lc.set_hook('after_cycle')
         def _after_first_cycle(ignored):
             self.failUnlessEqual(count_shares(immutable_si_0), 1)
-            self.failUnlessEqual(count_leases(immutable_si_0), 1)
+            self.failUnlessEqual(count_leases(immutable_si_0), (1, 0))
             self.failUnlessEqual(count_shares(immutable_si_1), 1)
-            self.failUnlessEqual(count_leases(immutable_si_1), 2)
+            self.failUnlessEqual(count_leases(immutable_si_1), (1, 1))
             self.failUnlessEqual(count_shares(mutable_si_2), 0)
             self.failUnlessEqual(count_shares(mutable_si_3), 0)
         d.addCallback(_after_first_cycle)
