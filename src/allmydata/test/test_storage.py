@@ -755,9 +755,9 @@ class MutableServer(unittest.TestCase):
 
     def create(self, name):
         workdir = self.workdir(name)
-        ss = StorageServer(workdir, "\x00" * 20)
-        ss.setServiceParent(self.sparent)
-        return ss.get_accountant().get_anonymous_account()
+        server = StorageServer(workdir, "\x00" * 20)
+        server.setServiceParent(self.sparent)
+        return server
 
     def test_create(self):
         self.create("test_create")
@@ -789,7 +789,9 @@ class MutableServer(unittest.TestCase):
         self.failUnlessEqual(len(readv_data), 0)
 
     def test_bad_magic(self):
-        ss = self.create("test_bad_magic")
+        server = self.create("test_bad_magic")
+        ss = server.get_accountant().get_anonymous_account()
+
         self.allocate(ss, "si1", "we1", self._lease_secret.next(), set([0]), 10)
         fn = os.path.join(ss._get_sharedir(), storage_index_to_dir("si1"), "0")
         f = open(fn, "rb+")
@@ -803,7 +805,9 @@ class MutableServer(unittest.TestCase):
         self.failUnlessIn(" but we wanted ", str(e))
 
     def test_container_size(self):
-        ss = self.create("test_container_size")
+        server = self.create("test_container_size")
+        ss = server.get_accountant().get_anonymous_account()
+
         self.allocate(ss, "si1", "we1", self._lease_secret.next(),
                       set([0,1,2]), 100)
         read = ss.remote_slot_readv
@@ -901,7 +905,9 @@ class MutableServer(unittest.TestCase):
         self.failUnlessEqual(read_answer, {})
 
     def test_allocate(self):
-        ss = self.create("test_allocate")
+        server = self.create("test_allocate")
+        ss = server.get_accountant().get_anonymous_account()
+
         self.allocate(ss, "si1", "we1", self._lease_secret.next(),
                       set([0,1,2]), 100)
 
@@ -973,7 +979,8 @@ class MutableServer(unittest.TestCase):
     def test_operators(self):
         # test operators, the data we're comparing is '11111' in all cases.
         # test both fail+pass, reset data after each one.
-        ss = self.create("test_operators")
+        server = self.create("test_operators")
+        ss = server.get_accountant().get_anonymous_account()
 
         secrets = ( self.write_enabler("we1"),
                     self.renew_secret("we1"),
@@ -1151,7 +1158,9 @@ class MutableServer(unittest.TestCase):
         reset()
 
     def test_readv(self):
-        ss = self.create("test_readv")
+        server = self.create("test_readv")
+        ss = server.get_accountant().get_anonymous_account()
+
         secrets = ( self.write_enabler("we1"),
                     self.renew_secret("we1"),
                     self.cancel_secret("we1") )
@@ -1182,7 +1191,9 @@ class MutableServer(unittest.TestCase):
                 self.failUnlessEqual(a.expiration_time, b.expiration_time)
 
     def test_leases(self):
-        ss = self.create("test_leases")
+        server = self.create("test_leases")
+        ss = server.get_accountant().get_anonymous_account()
+
         def secrets(n):
             return ( self.write_enabler("we1"),
                      self.renew_secret("we1-%d" % n),
@@ -1285,7 +1296,9 @@ class MutableServer(unittest.TestCase):
         self.compare_leases(all_leases, ss.get_leases("si1"), with_timestamps=False)
 
     def test_remove(self):
-        ss = self.create("test_remove")
+        server = self.create("test_remove")
+        ss = server.get_accountant().get_anonymous_account()
+
         self.allocate(ss, "si1", "we1", self._lease_secret.next(),
                       set([0,1,2]), 100)
         readv = ss.remote_slot_readv
