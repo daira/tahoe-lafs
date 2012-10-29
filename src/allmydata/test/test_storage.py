@@ -1193,6 +1193,7 @@ class MutableServer(unittest.TestCase):
     def test_leases(self):
         server = self.create("test_leases")
         ss = server.get_accountant().get_anonymous_account()
+        ss2 = server.get_accountant().get_starter_account()
 
         def secrets(n):
             return ( self.write_enabler("we1"),
@@ -1200,6 +1201,7 @@ class MutableServer(unittest.TestCase):
                      self.cancel_secret("we1-%d" % n) )
         data = "".join([ ("%d" % i) * 10 for i in range(10) ])
         write = ss.remote_slot_testv_and_readv_and_writev
+        write2 = ss2.remote_slot_testv_and_readv_and_writev
         read = ss.remote_slot_readv
         rc = write("si0", secrets(0), {0: ([], [(0,data)], None)}, [])
         self.failUnlessEqual(rc, (True, {}))
@@ -1236,52 +1238,23 @@ class MutableServer(unittest.TestCase):
         ss.remote_renew_lease("si1", secrets(0)[1])
         self.failUnlessEqual(len(ss.get_leases("si1")), 1)
 
-        # now allocate them with a bunch of different secrets, to trigger the
-        # extended lease code. Use add_lease for one of them.
-        write("si1", secrets(1), {0: ([], [(0,data)], None)}, [])
-        self.failUnlessEqual(len(ss.get_leases("si1")), 2)
-        secrets2 = secrets(2)
-        ss.remote_add_lease("si1", secrets2[1], secrets2[2])
-        self.failUnlessEqual(len(ss.get_leases("si1")), 3)
-        write("si1", secrets(3), {0: ([], [(0,data)], None)}, [])
-        write("si1", secrets(4), {0: ([], [(0,data)], None)}, [])
-        write("si1", secrets(5), {0: ([], [(0,data)], None)}, [])
-
-        self.failUnlessEqual(len(ss.get_leases("si1")), 6)
+        # now allocate them using a different account.
+        write2("si1", secrets(1), {0: ([], [(0,data)], None)}, [])
+        self.failUnlessEqual(len(ss.get_leases("si1")), 1)
+        self.failUnlessEqual(len(ss2.get_leases("si1")), 1)
 
         all_leases = ss.get_leases("si1")
-        # and write enough data to expand the container, forcing the server
-        # to move the leases
-        write("si1", secrets(0),
-              {0: ([], [(0,data)], 200), },
-              [])
-
-        # read back the leases, make sure they're still intact.
-        self.compare_leases(all_leases, ss.get_leases("si1"), with_timestamps=False)
+        all_leases2 = ss2.get_leases("si1")
 
         ss.remote_renew_lease("si1", secrets(0)[1])
-        ss.remote_renew_lease("si1", secrets(1)[1])
-        ss.remote_renew_lease("si1", secrets(2)[1])
-        ss.remote_renew_lease("si1", secrets(3)[1])
-        ss.remote_renew_lease("si1", secrets(4)[1])
         self.compare_leases(all_leases, ss.get_leases("si1"), with_timestamps=False)
+
+        ss2.remote_renew_lease("si1", secrets(1)[1])
+        self.compare_leases(all_leases2, ss2.get_leases("si1"), with_timestamps=False)
+
         # get a new copy of the leases, with the current timestamps. Reading
-        # data and failing to renew/cancel leases should leave the timestamps
-        # alone.
+        # data should leave the timestamps alone.
         all_leases = ss.get_leases("si1")
-        # renewing with a bogus token should prompt an error message
-
-        # examine the exception thus raised, make sure the old nodeid is
-        # present, to provide for share migration
-        e = self.failUnlessRaises(IndexError,
-                                  ss.remote_renew_lease, "si1",
-                                  secrets(20)[1])
-        e_s = str(e)
-        self.failUnlessIn("Unable to renew non-existent lease", e_s)
-        self.failUnlessIn("I have leases accepted by nodeids:", e_s)
-        self.failUnlessIn("nodeids: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' .", e_s)
-
-        self.compare_leases(all_leases, ss.get_leases("si1"))
 
         # reading shares should not modify the timestamp
         read("si1", [], [(0,200)])
