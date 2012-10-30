@@ -143,7 +143,7 @@ class Basic(testutil.ReallyEqualMixin, unittest.TestCase):
                        "[storage]\n" + \
                        "enabled = true\n" + \
                        "expire.mutable = False\n")
-        self.failUnlessRaises(ValueError, client.Client, basedir)
+        self.failUnlessRaises(OldConfigOptionError, client.Client, basedir)
 
     def test_expire_immutable_false_unsupported(self):
         basedir = "client.Basic.test_expire_immutable_false_unsupported"
@@ -153,7 +153,7 @@ class Basic(testutil.ReallyEqualMixin, unittest.TestCase):
                        "[storage]\n" + \
                        "enabled = true\n" + \
                        "expire.immutable = False\n")
-        self.failUnlessRaises(ValueError, client.Client, basedir)
+        self.failUnlessRaises(OldConfigOptionError, client.Client, basedir)
 
     def _permute(self, sb, key):
         return [ s.get_longname() for s in sb.get_servers_for_psi(key) ]

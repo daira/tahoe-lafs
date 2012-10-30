@@ -275,9 +275,9 @@ class Client(node.Node, pollmixin.PollMixin):
             cutoff_date = parse_date(cutoff_date)
 
         if not self.get_config("storage", "expire.immutable", True, boolean=True):
-            raise ValueError("[storage]expire.immutable = False is no longer supported")
+            raise OldConfigOptionError("[storage]expire.immutable = False is no longer supported.")
         if not self.get_config("storage", "expire.mutable", True, boolean=True):
-            raise ValueError("[storage]expire.mutable = False is no longer supported")
+            raise OldConfigOptionError("[storage]expire.mutable = False is no longer supported.")
 
         expiration_policy = ExpirationPolicy(enabled=expire, mode=mode, override_lease_duration=o_l_d,
                                              cutoff_date=cutoff_date)
