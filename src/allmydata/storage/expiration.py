@@ -9,7 +9,7 @@ from allmydata.web.common import abbreviate_time
 
 class ExpirationPolicy(object):
     def __init__(self, enabled=False, mode="age", override_lease_duration=None,
-                 cutoff_date=None, sharetypes=("mutable", "immutable")):
+                 cutoff_date=None):
         precondition(isinstance(enabled, bool), enabled=enabled)
         precondition(mode in ("age", "cutoff-date"),
                      "GC mode %r must be 'age' or 'cutoff-date'" % (mode,))
@@ -17,19 +17,15 @@ class ExpirationPolicy(object):
                      override_lease_duration=override_lease_duration)
         precondition(isinstance(cutoff_date, int) or (mode != "cutoff-date" and cutoff_date is None),
                      cutoff_date=cutoff_date)
-        precondition(isinstance(sharetypes, tuple), sharetypes=sharetypes)
 
+        self._enabled = enabled
         self._mode = mode
         self._override_lease_duration = override_lease_duration
         self._cutoff_date = cutoff_date
-        if enabled:
-            self._sharetypes_to_expire = sharetypes
-        else:
-            self._sharetypes_to_expire = ()
 
-    def should_expire(self, current_time, renewal_time, expiration_time, sharetype):
+    def should_expire(self, current_time, renewal_time, expiration_time):
         # XXX should reexpress this as an SQL DELETE that deletes all expired shares at once.
-        if sharetype not in self._sharetypes_to_expire:
+        if not self._enabled:
             return False
 
         if self._mode == "age":
@@ -50,10 +46,10 @@ class ExpirationPolicy(object):
         return (self._mode,
                 self._override_lease_duration,
                 self._cutoff_date,
-                self._sharetypes_to_expire)
+                self._enabled and ("mutable", "immutable") or ())
 
     def is_enabled(self):
-        return bool(self._sharetypes_to_expire)
+        return self._enabled
 
     def describe_enabled(self):
         if self.is_enabled():
@@ -75,8 +71,3 @@ class ExpirationPolicy(object):
             isoutcdate = time_format.iso_utc_date(self._cutoff_date)
             return ("Leases created or last renewed before %s (%s) UTC "
                     "will be considered expired." % (isoutcdate, localizedutcdate))
-
-    def describe_sharetypes(self):
-        return (" The following sharetypes will be expired: ",
-                " ".join(sorted(self._sharetypes_to_expire)), ".")
-

@@ -137,7 +137,6 @@ class StorageStatus(rend.Page):
     def render_lease_expiration_mode(self, ctx, data):
         ep = self.storage.get_expiration_policy()
         ctx.tag[ep.describe_expiration()]
-        ctx.tag[ep.describe_sharetypes()]
         return ctx.tag
 
     def format_recovered(self, sr, a):
