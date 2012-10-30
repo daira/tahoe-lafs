@@ -341,8 +341,15 @@ class LeaseDB:
         rows = self._cursor.fetchall()
         return map(tuple, rows)
 
-    def remove_expired_leases(self, expiration_policy):
-        raise NotImplementedError
+    def remove_leases_by_renewal_time(self, renewal_cutoff_time):
+        self._cursor.execute("DELETE FROM `leases` WHERE `renewal_time` < ?",
+                             (renewal_cutoff_time,))
+        self.commit(always=True)
+
+    def remove_leases_by_expiration_time(self, expiration_cutoff_time):
+        self._cursor.execute("DELETE FROM `leases` WHERE `expiration_time` < ?",
+                             (expiration_cutoff_time,))
+        self.commit(always=True)
 
     # history
 

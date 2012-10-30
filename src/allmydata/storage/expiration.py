@@ -23,20 +23,18 @@ class ExpirationPolicy(object):
         self._override_lease_duration = override_lease_duration
         self._cutoff_date = cutoff_date
 
-    def should_expire(self, current_time, renewal_time, expiration_time):
-        # XXX should reexpress this as an SQL DELETE that deletes all expired shares at once.
+    def remove_expired_leases(self, leasedb, current_time):
         if not self._enabled:
-            return False
+            return
 
         if self._mode == "age":
-            if self._override_lease_duration is None:
-                expiry_time = expiration_time  # from lease
+            if self._override_lease_duration is not None:
+                leasedb.remove_leases_by_renewal_time(current_time - self._override_lease_duration)
             else:
-                expiry_time = renewal_time + self._override_lease_duration
+                leasedb.remove_leases_by_expiration_time(current_time)
         else:
-            expiry_time = self._cutoff_date
-
-        return current_time >= expiry_time
+            # self._mode == "cutoff-date"
+            leasedb.remove_leases_by_renewal_time(self._cutoff_date)
 
     def get_parameters(self):
         """
