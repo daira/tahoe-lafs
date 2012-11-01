@@ -106,7 +106,7 @@ CREATE TABLE `leases`
  `shnum` INTEGER not null,
  `account_id` INTEGER not null,
  `renewal_time` INTEGER not null, -- duration is implicit: expiration-renewal
- `expiration_time` INTEGER not null, -- seconds since epoch
+ `expiration_time` INTEGER,       -- seconds since epoch; NULL means the end of time
  FOREIGN KEY (`storage_index`, `shnum`) REFERENCES `shares` (`storage_index`, `shnum`),
  FOREIGN KEY (`account_id`) REFERENCES `accounts` (`id`)
 );
@@ -347,7 +347,7 @@ class LeaseDB:
         self.commit(always=True)
 
     def remove_leases_by_expiration_time(self, expiration_cutoff_time):
-        self._cursor.execute("DELETE FROM `leases` WHERE `expiration_time` < ?",
+        self._cursor.execute("DELETE FROM `leases` WHERE `expiration_time` IS NOT NULL AND `expiration_time` < ?",
                              (expiration_cutoff_time,))
         self.commit(always=True)
 
