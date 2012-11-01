@@ -16,7 +16,8 @@ import weakref
 
 from twisted.application import service
 
-from allmydata.storage.leasedb import LeaseDB, AccountingCrawler
+from allmydata.storage.leasedb import LeaseDB
+from allmydata.storage.accounting_crawler import AccountingCrawler
 from allmydata.storage.account import Account
 
 
