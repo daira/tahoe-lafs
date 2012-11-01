@@ -556,6 +556,9 @@ class AccountingCrawler(ShareCrawler):
     def started_cycle(self, cycle):
         self.state["cycle-to-date"] = self.create_empty_cycle_dict()
 
+        current_time = time.time()
+        self._expiration_policy.remove_expired_leases(self._leasedb, current_time)
+
     def finished_cycle(self, cycle):
         print "FINISHED_CYCLE!"
         # add to our history state, prune old history
