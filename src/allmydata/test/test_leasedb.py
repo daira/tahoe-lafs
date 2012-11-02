@@ -3,8 +3,9 @@ import os, time
 from twisted.trial import unittest
 from twisted.internet import defer
 from allmydata.util import fileutil
-from allmydata.storage.leasedb import LeaseDB, AccountingCrawler, \
-    SHARETYPE_IMMUTABLE, SHARETYPE_MUTABLE
+from allmydata.storage.leasedb import LeaseDB, SHARETYPE_IMMUTABLE, \
+    SHARETYPE_MUTABLE
+from allmydata.storage.accounting_crawler import AccountingCrawler
 from allmydata.storage.expiration import ExpirationPolicy
 
 
