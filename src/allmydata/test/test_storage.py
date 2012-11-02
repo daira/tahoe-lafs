@@ -3530,10 +3530,6 @@ class AccountingCrawlerTest(unittest.TestCase, pollmixin.PollMixin, CrawlerTestM
         return d
 
     def test_share_corruption(self):
-        self._poll_should_ignore_these_errors = [
-            UnknownMutableContainerVersionError,
-            UnknownImmutableContainerVersionError,
-            ]
         basedir = "storage/AccountingCrawler/share_corruption"
         fileutil.make_dirs(basedir)
         server = StorageServer(basedir, "\x00" * 20)
@@ -3635,7 +3631,7 @@ class AccountingCrawlerTest(unittest.TestCase, pollmixin.PollMixin, CrawlerTestM
         return d
 
 
-class WebStatus(unittest.TestCase, pollmixin.PollMixin, WebRenderingMixin):
+class WebStatus(unittest.TestCase, WebRenderingMixin):
 
     def setUp(self):
         self.s = service.MultiService()
