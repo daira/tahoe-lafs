@@ -4,6 +4,7 @@ import os, time
 from twisted.python.filepath import FilePath
 
 from allmydata.util.fileutil import get_used_space
+from allmydata.util import log
 from allmydata.storage.crawler import ShareCrawler
 from allmydata.storage.common import si_a2b
 from allmydata.storage.leasedb import SHARETYPES, SHARETYPE_UNKNOWN, ShareAlreadyInDatabaseError
@@ -91,9 +92,11 @@ class AccountingCrawler(ShareCrawler):
             else:
                 self._leasedb.add_starter_lease(si_s, shnum)
 
-        # remove deleted shares
-        deleted_shares = db_shares - disk_shares
-        for (si_s, shnum, sharetype) in deleted_shares:
+        # remove disappeared shares from DB
+        disappeared_shares = db_shares - disk_shares
+        for (si_s, shnum) in disappeared_shares:
+            log.msg("share SI=%(si_s)s shnum=%(shnum)s unexpectedly disappeared",
+                    si_s=si_s, shnum=shnum, level=log.WEIRD)
             self._leasedb.remove_deleted_share(si_a2b(si_s), shnum)
 
         # remove unleased shares
