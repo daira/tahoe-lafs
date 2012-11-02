@@ -158,9 +158,9 @@ class LeaseDB:
                              " FROM `shares`"
                              " WHERE `prefix` == ?",
                              (prefix,))
-        db_shares = dict([((str(si_s), int(shnum)), (int(used_space), int(sharetype)))
-                          for (si_s, shnum, used_space, sharetype) in self._cursor.fetchall()])
-        return db_shares
+        db_sharemap = dict([((str(si_s), int(shnum)), (int(used_space), int(sharetype)))
+                           for (si_s, shnum, used_space, sharetype) in self._cursor.fetchall()])
+        return db_sharemap
 
     def add_new_share(self, storage_index, shnum, used_space, sharetype):
         si_s = si_b2a(storage_index)
@@ -192,16 +192,22 @@ class LeaseDB:
                              (None, si_s, shnum, self.STARTER_LEASE_ACCOUNTID,
                               int(renewal_time), int(renewal_time + self.STARTER_LEASE_DURATION)))
 
-    def mark_share_as_stable(self, storage_index, shnum, used_space, backend_key=None):
+    def mark_share_as_stable(self, storage_index, shnum, used_space=None, backend_key=None):
         """
         Call this method after adding a share to backend storage.
         """
         si_s = si_b2a(storage_index)
         if self.debug: print "MARK_SHARE_AS_STABLE", si_s, shnum, used_space
         self._dirty = True
-        self._cursor.execute("UPDATE `shares` SET `state`=?, `used_space`=?, `backend_key`=?"
-                             " WHERE `storage_index`=? AND `shnum`=? AND `state`!=?",
-                             (STATE_STABLE, used_space, backend_key, si_s, shnum, STATE_GOING))
+        if used_space is not None:
+            self._cursor.execute("UPDATE `shares` SET `state`=?, `used_space`=?, `backend_key`=?"
+                                 " WHERE `storage_index`=? AND `shnum`=? AND `state`!=?",
+                                 (STATE_STABLE, used_space, backend_key, si_s, shnum, STATE_GOING))
+        else:
+            _assert(backend_key is None, backend_key=backend_key)
+            self._cursor.execute("UPDATE `shares` SET `state`=?"
+                                 " WHERE `storage_index`=? AND `shnum`=? AND `state`!=?",
+                                 (STATE_STABLE, si_s, shnum, STATE_GOING))
         if self._cursor.rowcount < 1:
             raise NonExistentShareError(si_s, shnum)
 
@@ -310,23 +316,19 @@ class LeaseDB:
             return now - float(row[0])
         return map(_to_age, rows)
 
-    def get_unleased_shares(self, limit=None):
+    def get_unleased_shares_for_prefix(self, prefix):
         # This would be simpler, but it doesn't work because 'NOT IN' doesn't support multiple columns.
-        #query = ("SELECT `storage_index`, `shnum` FROM `shares`"
+        #query = ("SELECT `storage_index`, `shnum`, `used_space`, `sharetype` FROM `shares`"
         #         " WHERE (`storage_index`, `shnum`) NOT IN (SELECT DISTINCT `storage_index`, `shnum` FROM `leases`)")
 
         # This "negative join" should be equivalent.
-        query = ("SELECT DISTINCT s.storage_index, s.shnum, s.sharetype FROM `shares` s LEFT JOIN `leases` l"
-                 " ON (s.storage_index = l.storage_index AND s.shnum = l.shnum)"
-                 " WHERE l.storage_index IS NULL")
-
-        if limit is None:
-            self._cursor.execute(query)
-        else:
-            self._cursor.execute(query + " LIMIT ?", (limit,))
-
-        rows = self._cursor.fetchall()
-        return map(tuple, rows)
+        self._cursor.execute("SELECT DISTINCT s.storage_index, s.shnum, s.used_space, s.sharetype FROM `shares` s LEFT JOIN `leases` l"
+                             " ON (s.storage_index = l.storage_index AND s.shnum = l.shnum)"
+                             " WHERE s.prefix = ? AND l.storage_index IS NULL",
+                             (prefix,))
+        db_sharemap = dict([((str(si_s), int(shnum)), (int(used_space), int(sharetype)))
+                           for (si_s, shnum, used_space, sharetype) in self._cursor.fetchall()])
+        return db_sharemap
 
     def remove_leases_by_renewal_time(self, renewal_cutoff_time):
         self._cursor.execute("DELETE FROM `leases` WHERE `renewal_time` < ?",

@@ -459,6 +459,11 @@ class StorageServer(service.MultiService):
                                          self)
         return share
 
+    def delete_share(self, storage_index, shnum):
+        si_dir = storage_index_to_dir(storage_index)
+        filename = os.path.join(si_dir, "%d" % (shnum,))
+        os.unlink(filename)
+
     def client_slot_readv(self, storage_index, shares, readv, account):
         start = time.time()
         self.count("readv")

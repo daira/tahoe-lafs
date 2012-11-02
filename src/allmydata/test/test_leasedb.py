@@ -108,11 +108,11 @@ class Crawler(unittest.TestCase):
 
     def remove_garbage(self):
         # this returns the first bunch of shares without leases
-        shareids = self.leasedb.get_unleased_shares(limit=100)
+        shareids = self.leasedb.get_unleased_shares_for_prefix('aa')
         #self.failUnlessEqual(shareids, [shareid])
         # this does an asynchronous delete of the given expired shares, and
         # removes their entries from the 'shares' table
-        return self.crawler.remove_unleased_shares(shareids)
+        return self.crawler.remove_unleased_shares(shareids) #FIXME
 
     def count_shares(self):
         # query DB
@@ -170,7 +170,7 @@ class Crawler(unittest.TestCase):
             # This deletes all expired leases. We assume DB operations are
             # synchronous, but removal of share files does not occur until
             # remove_unleased_shares is called.
-            self.leasedb.remove_expired_leases()
+            self.leasedb.remove_expired_leases() #FIXME
             self.failUnless(self.have_sharefile(AB))
             self.check_shares(live=set([FG]), garbage=set([AB]))
             return self.remove_garbage()

@@ -1,8 +1,10 @@
 
 import os, time
 
+from twisted.internet import defer
 from twisted.python.filepath import FilePath
 
+from allmydata.util.deferredutil import for_items
 from allmydata.util.fileutil import get_used_space
 from allmydata.util import log
 from allmydata.storage.crawler import ShareCrawler
@@ -99,13 +101,39 @@ class AccountingCrawler(ShareCrawler):
                     si_s=si_s, shnum=shnum, level=log.WEIRD)
             self._leasedb.remove_deleted_share(si_a2b(si_s), shnum)
 
-        # remove unleased shares
-        #deleted_shares = db_shares - disk_shares
-        #for (si_s, shnum, sharetype) in deleted_shares:
-        #    self._leasedb.remove_deleted_share(si_a2b(si_s), shnum)
+        def _delete_share(ign, key, value):
+            # TODO: add deleted share counts to rec
+            (si_s, shnum) = key
+            (used_space, sharetype) = value
+            storage_index = si_a2b(si_s)
+            d2 = defer.succeed(None)
+            def _mark_and_delete(ign):
+                self._leasedb.mark_share_as_going(storage_index, shnum)
+                return self.server.delete_share(storage_index, shnum)
+            d2.addCallback(_mark_and_delete)
+            def _deleted(ign):
+                self._leasedb.remove_deleted_share(storage_index, shnum)
+                return True
+            def _not_deleted(f):
+                log.err("accounting crawler could not delete share SI=%(si_s)s shnum=%(shnum)s: %(f)s",
+                        si_s=si_s, shnum=shnum, f=repr(f), level=log.WEIRD)
+                try:
+                    self._leasedb.mark_share_as_stable(storage_index, shnum)
+                except Exception, e:
+                    log.err(e)
+                # discard the failure
+                return True
+            d2.addCallbacks(_deleted, _not_deleted)
+            return d2
 
-        self._leasedb.commit()
+        unleased_sharemap = self._leasedb.get_unleased_shares_for_prefix(prefix)
+        d = for_items(_delete_share, unleased_sharemap)
 
+        def _commit(res):
+            self._leasedb.commit()
+            return res
+        d.addBoth(_commit)
+        return d
 
     # these methods are for outside callers to use
 
