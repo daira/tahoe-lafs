@@ -97,7 +97,7 @@ class AccountingCrawler(ShareCrawler):
         # remove disappeared shares from DB
         disappeared_shares = db_shares - disk_shares
         for (si_s, shnum) in disappeared_shares:
-            log.msg("share SI=%(si_s)s shnum=%(shnum)s unexpectedly disappeared",
+            log.msg(format="share SI=%(si_s)s shnum=%(shnum)s unexpectedly disappeared",
                     si_s=si_s, shnum=shnum, level=log.WEIRD)
             self._leasedb.remove_deleted_share(si_a2b(si_s), shnum)
 
@@ -115,8 +115,8 @@ class AccountingCrawler(ShareCrawler):
                 self._leasedb.remove_deleted_share(storage_index, shnum)
                 return True
             def _not_deleted(f):
-                log.err("accounting crawler could not delete share SI=%(si_s)s shnum=%(shnum)s: %(f)s",
-                        si_s=si_s, shnum=shnum, f=repr(f), level=log.WEIRD)
+                log.err(format="accounting crawler could not delete share SI=%(si_s)s shnum=%(shnum)s",
+                        si_s=si_s, shnum=shnum, failure=f, level=log.WEIRD)
                 try:
                     self._leasedb.mark_share_as_stable(storage_index, shnum)
                 except Exception, e:
