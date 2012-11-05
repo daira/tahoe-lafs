@@ -3192,6 +3192,7 @@ class AccountingCrawlerTest(unittest.TestCase, pollmixin.PollMixin, CrawlerTestM
         fileutil.make_dirs(basedir)
         # setting expiration_time to 2000 means that any lease which is more
         # than 2000s old will be expired.
+        now = time.time()
         ep = ExpirationPolicy(enabled=True, mode="age", override_lease_duration=2000)
         server = StorageServer(basedir, "\x00" * 20, expiration_policy=ep)
         ss = server.get_accountant().get_anonymous_account()
@@ -3224,23 +3225,25 @@ class AccountingCrawlerTest(unittest.TestCase, pollmixin.PollMixin, CrawlerTestM
         self.failUnlessEqual(count_shares(mutable_si_3), 1)
         self.failUnlessEqual(count_leases(mutable_si_3), (1, 1))
 
-        # artificially crank back the expiration time on the first lease of
-        # each share, to make it look like it expired already (age=1000s).
+        # artificially crank back the renewal time on the first lease of each
+        # share to 3000s ago, and set the expiration time to 31 days later.
+        new_renewal_time = now - 3000
+        new_expiration_time = new_renewal_time + 31*24*60*60
+
         # Some shares have an extra lease which is set to expire at the
         # default time in 31 days from now (age=31days). We then run the
         # crawler, which will expire the first lease, making some shares get
         # deleted and others stay alive (with one remaining lease)
-        now = time.time()
 
-        ss.add_or_renew_lease(immutable_si_0,  0, now - 1000, now - 1000)
+        ss.add_or_renew_lease(immutable_si_0,  0, new_renewal_time, new_expiration_time)
 
         # immutable_si_1 gets an extra lease
-        ss2.add_or_renew_lease(immutable_si_1, 0, now - 1000, now - 1000)
+        ss2.add_or_renew_lease(immutable_si_1, 0, new_renewal_time, new_expiration_time)
 
-        ss.add_or_renew_lease(mutable_si_2,    0, now - 1000, now - 1000)
+        ss.add_or_renew_lease(mutable_si_2,    0, new_renewal_time, new_expiration_time)
 
         # mutable_si_3 gets an extra lease
-        ss2.add_or_renew_lease(mutable_si_3,   0, now - 1000, now - 1000)
+        ss2.add_or_renew_lease(mutable_si_3,   0, new_renewal_time, new_expiration_time)
 
         server.setServiceParent(self.s)
 
