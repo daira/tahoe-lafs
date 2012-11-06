@@ -55,7 +55,7 @@ class AccountingCrawler(ShareCrawler):
             print prefix, db_sharemap
 
         rec = self.state["cycle-to-date"]["space-recovered"]
-        sharesets = [set() for st in xrange(len(SHARETYPES))]
+        examined_sharesets = [set() for st in xrange(len(SHARETYPES))]
 
         # The lease crawler used to calculate the lease age histogram while
         # crawling shares, and tests currently rely on that, but it would be
@@ -65,7 +65,7 @@ class AccountingCrawler(ShareCrawler):
             (si_s, shnum) = key
             (used_space, sharetype) = value
 
-            sharesets[sharetype].add(si_s)
+            examined_sharesets[sharetype].add(si_s)
 
             for age in self._leasedb.get_lease_ages(si_a2b(si_s), shnum, start_slice):
                 self.add_lease_age_to_histogram(age)
@@ -75,9 +75,9 @@ class AccountingCrawler(ShareCrawler):
             self.increment(rec, "examined-shares-" + SHARETYPES[sharetype], 1)
             self.increment(rec, "examined-sharebytes-" + SHARETYPES[sharetype], used_space)
 
-        self.increment(rec, "examined-buckets", sum([len(s) for s in sharesets]))
+        self.increment(rec, "examined-buckets", sum([len(s) for s in examined_sharesets]))
         for st in SHARETYPES:
-            self.increment(rec, "examined-buckets-" + SHARETYPES[st], len(sharesets[st]))
+            self.increment(rec, "examined-buckets-" + SHARETYPES[st], len(examined_sharesets[st]))
 
         # add new shares to the DB
         new_shares = disk_shares - db_shares
@@ -101,8 +101,9 @@ class AccountingCrawler(ShareCrawler):
                     si_s=si_s, shnum=shnum, level=log.WEIRD)
             self._leasedb.remove_deleted_share(si_a2b(si_s), shnum)
 
+        recovered_sharesets = [set() for st in xrange(len(SHARETYPES))]
+
         def _delete_share(ign, key, value):
-            # TODO: add deleted share counts to rec
             (si_s, shnum) = key
             (used_space, sharetype) = value
             storage_index = si_a2b(si_s)
@@ -113,7 +114,13 @@ class AccountingCrawler(ShareCrawler):
             d2.addCallback(_mark_and_delete)
             def _deleted(ign):
                 self._leasedb.remove_deleted_share(storage_index, shnum)
-                return True
+
+                recovered_sharesets[sharetype].add(si_s)
+
+                self.increment(rec, "actual-shares", 1)
+                self.increment(rec, "actual-sharebytes", used_space)
+                self.increment(rec, "actual-shares-" + SHARETYPES[sharetype], 1)
+                self.increment(rec, "actual-sharebytes-" + SHARETYPES[sharetype], used_space)
             def _not_deleted(f):
                 log.err(format="accounting crawler could not delete share SI=%(si_s)s shnum=%(shnum)s",
                         si_s=si_s, shnum=shnum, failure=f, level=log.WEIRD)
@@ -122,12 +129,17 @@ class AccountingCrawler(ShareCrawler):
                 except Exception, e:
                     log.err(e)
                 # discard the failure
-                return True
             d2.addCallbacks(_deleted, _not_deleted)
             return d2
 
         unleased_sharemap = self._leasedb.get_unleased_shares_for_prefix(prefix)
         d = for_items(_delete_share, unleased_sharemap)
+
+        def _inc_recovered_sharesets(ign):
+            self.increment(rec, "actual-buckets", sum([len(s) for s in recovered_sharesets]))
+            for st in SHARETYPES:
+                self.increment(rec, "actual-buckets-" + SHARETYPES[st], len(recovered_sharesets[st]))
+        d.addCallback(_inc_recovered_sharesets)
         return d
 
     # these methods are for outside callers to use
