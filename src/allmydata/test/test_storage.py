@@ -3278,8 +3278,12 @@ class AccountingCrawlerTest(unittest.TestCase, pollmixin.PollMixin, CrawlerTestM
             last = s["history"][0]
 
             self.failUnlessEqual(last["expiration-enabled"], True)
-            self.failUnlessEqual(last["configured-expiration-mode"],
-                                 ("age", 2000, None, ("mutable", "immutable")))
+            cem = last["configured-expiration-mode"]
+            self.failUnlessEqual(cem[0], "age")
+            self.failUnlessEqual(cem[1], 2000)
+            self.failUnlessEqual(cem[2], None)
+            self.failUnlessEqual(cem[3][0], "mutable")
+            self.failUnlessEqual(cem[3][1], "immutable")
             self.failUnlessEqual(last["leases-per-share-histogram"], {1: 2, 2: 2})
 
             rec = last["space-recovered"]
@@ -3399,9 +3403,12 @@ class AccountingCrawlerTest(unittest.TestCase, pollmixin.PollMixin, CrawlerTestM
             last = s["history"][0]
 
             self.failUnlessEqual(last["expiration-enabled"], True)
-            self.failUnlessEqual(last["configured-expiration-mode"],
-                                 ("cutoff-date", None, then,
-                                  ("mutable", "immutable")))
+            cem = last["configured-expiration-mode"]
+            self.failUnlessEqual(cem[0], "cutoff-date")
+            self.failUnlessEqual(cem[1], None)
+            self.failUnlessEqual(cem[2], then)
+            self.failUnlessEqual(cem[3][0], "mutable")
+            self.failUnlessEqual(cem[3][1], "immutable")
             self.failUnlessEqual(last["leases-per-share-histogram"],
                                  {1: 2, 2: 2})
 
