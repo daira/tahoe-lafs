@@ -439,7 +439,6 @@ class StorageServer(service.MultiService):
                         account.mark_share_as_stable(storage_index, sharenum,
                                                      shares[sharenum].get_used_space())
                     account.add_or_renew_default_lease(storage_index, sharenum)
-            account.commit()
 
             if new_length == 0:
                 # delete empty bucket directories

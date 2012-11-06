@@ -75,7 +75,6 @@ class Crawler(unittest.TestCase):
         leasedb.add_new_share(prefix, si_s, shnum, 20, sharetype)
         OWNER=3 ; EXPIRETIME=time.time() + 30*24*60*60
         leasedb.add_or_renew_leases(si_s, shnum, OWNER, EXPIRETIME)
-        leasedb.commit()
 
     def delete_external_share(self, shareid):
         (si_s, shnum, _sharetype) = shareid

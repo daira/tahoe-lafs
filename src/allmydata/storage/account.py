@@ -54,59 +54,42 @@ class Account(Referenceable):
     #  new shares: add_share(), add_lease(), mark_share_as_stable()
     #  changed shares: change_share_space(), add_lease()
 
-    def add_share(self, storage_index, shnum, used_space, sharetype, commit=True):
-        if self.debug: print "ADD_SHARE", si_b2a(storage_index), shnum, used_space, sharetype, commit
+    def add_share(self, storage_index, shnum, used_space, sharetype):
+        if self.debug: print "ADD_SHARE", si_b2a(storage_index), shnum, used_space, sharetype
         self._leasedb.add_new_share(storage_index, shnum, used_space, sharetype)
-        if commit:
-            self._leasedb.commit()
 
-    def add_or_renew_default_lease(self, storage_index, shnum, commit=True):
+    def add_or_renew_default_lease(self, storage_index, shnum):
         renewal_time, expiration_time = self.get_renewal_and_expiration_times()
-        return self.add_or_renew_lease(storage_index, shnum, renewal_time, expiration_time, commit=commit)
+        return self.add_or_renew_lease(storage_index, shnum, renewal_time, expiration_time)
 
-    def add_or_renew_lease(self, storage_index, shnum, renewal_time, expiration_time, commit=True):
-        if self.debug: print "ADD_OR_RENEW_LEASE", si_b2a(storage_index), shnum, commit
+    def add_or_renew_lease(self, storage_index, shnum, renewal_time, expiration_time):
+        if self.debug: print "ADD_OR_RENEW_LEASE", si_b2a(storage_index), shnum
         self._leasedb.add_or_renew_leases(storage_index, shnum, self.owner_num,
                                           renewal_time, expiration_time)
-        if commit:
-            self._leasedb.commit()
 
-    def change_share_space(self, storage_index, shnum, used_space, commit=True):
+    def change_share_space(self, storage_index, shnum, used_space):
         # XXX do we actually need this?
-        if self.debug: print "CHANGE_SHARE_SPACE", si_b2a(storage_index), shnum, used_space, commit
+        if self.debug: print "CHANGE_SHARE_SPACE", si_b2a(storage_index), shnum, used_space
         self._leasedb.change_share_space(storage_index, shnum, used_space)
-        if commit:
-            self._leasedb.commit()
 
-    def mark_share_as_stable(self, storage_index, shnum, used_space, commit=True):
-        if self.debug: print "MARK_SHARE_AS_STABLE", si_b2a(storage_index), shnum, used_space, commit
+    def mark_share_as_stable(self, storage_index, shnum, used_space):
+        if self.debug: print "MARK_SHARE_AS_STABLE", si_b2a(storage_index), shnum, used_space
         self._leasedb.mark_share_as_stable(storage_index, shnum, used_space)
-        if commit:
-            self._leasedb.commit()
 
-    def mark_share_as_going(self, storage_index, shnum, commit=True):
-        if self.debug: print "MARK_SHARE_AS_GOING", si_b2a(storage_index), shnum, commit
+    def mark_share_as_going(self, storage_index, shnum):
+        if self.debug: print "MARK_SHARE_AS_GOING", si_b2a(storage_index), shnum
         self._leasedb.mark_share_as_going(storage_index, shnum)
-        if commit:
-            self._leasedb.commit()
 
-    def remove_share_and_leases(self, storage_index, shnum, commit=True):
-        if self.debug: print "REMOVE_SHARE_AND_LEASES", si_b2a(storage_index), shnum, commit
+    def remove_share_and_leases(self, storage_index, shnum):
+        if self.debug: print "REMOVE_SHARE_AND_LEASES", si_b2a(storage_index), shnum
         self._leasedb.remove_deleted_share(storage_index, shnum)
-        if commit:
-            self._leasedb.commit()
 
     # remote_add_lease() and remote_renew_lease() do this
-    def add_lease_for_bucket(self, storage_index, commit=True):
-        if self.debug: print "ADD_LEASE_FOR_BUCKET", si_b2a(storage_index), commit
+    def add_lease_for_bucket(self, storage_index):
+        if self.debug: print "ADD_LEASE_FOR_BUCKET", si_b2a(storage_index)
         renewal_time, expiration_time = self.get_renewal_and_expiration_times()
         self._leasedb.add_or_renew_leases(storage_index, None,
                                           self.owner_num, renewal_time, expiration_time)
-        if commit:
-            self._leasedb.commit()
-
-    def commit(self):
-        self._leasedb.commit()
 
     # The following RIStorageServer methods are called by remote clients
 

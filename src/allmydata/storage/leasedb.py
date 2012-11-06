@@ -137,14 +137,10 @@ class LeaseDB:
     STARTER_LEASE_ACCOUNTID = 1
     STARTER_LEASE_DURATION = 2*MONTH
 
-    # for all methods that start by setting self._dirty=True, be sure to call
-    # .commit() when you're done
-
     def __init__(self, dbfile):
         (self._sqlite,
          self._db) = dbutil.get_db(dbfile, create_version=(LEASE_SCHEMA_V1, 1))
         self._cursor = self._db.cursor()
-        self._dirty = False
         self.debug = False
         self.retained_history_entries = 10
 
@@ -191,6 +187,7 @@ class LeaseDB:
                              " VALUES (?,?,?,?,?,?)",
                              (None, si_s, shnum, self.STARTER_LEASE_ACCOUNTID,
                               int(renewal_time), int(renewal_time + self.STARTER_LEASE_DURATION)))
+        self._db.commit()
 
     def mark_share_as_stable(self, storage_index, shnum, used_space=None, backend_key=None):
         """
@@ -208,6 +205,7 @@ class LeaseDB:
             self._cursor.execute("UPDATE `shares` SET `state`=?"
                                  " WHERE `storage_index`=? AND `shnum`=? AND `state`!=?",
                                  (STATE_STABLE, si_s, shnum, STATE_GOING))
+        self._db.commit()
         if self._cursor.rowcount < 1:
             raise NonExistentShareError(si_s, shnum)
 
@@ -218,32 +216,37 @@ class LeaseDB:
         """
         si_s = si_b2a(storage_index)
         if self.debug: print "MARK_SHARE_AS_GOING", si_s, shnum
-        self._dirty = True
         self._cursor.execute("UPDATE `shares` SET `state`=?"
                              " WHERE `storage_index`=? AND `shnum`=? AND `state`!=?",
                              (STATE_GOING, si_s, shnum, STATE_COMING))
+        self._db.commit()
         if self._cursor.rowcount < 1:
             raise NonExistentShareError(si_s, shnum)
 
     def remove_deleted_share(self, storage_index, shnum):
         si_s = si_b2a(storage_index)
         if self.debug: print "REMOVE_DELETED_SHARE", si_s, shnum
-        self._dirty = True
         # delete leases first to maintain integrity constraint
         self._cursor.execute("DELETE FROM `leases`"
                              " WHERE `storage_index`=? AND `shnum`=?",
                              (si_s, shnum))
-        self._cursor.execute("DELETE FROM `shares`"
-                             " WHERE `storage_index`=? AND `shnum`=?",
-                             (si_s, shnum))
+        try:
+            self._cursor.execute("DELETE FROM `shares`"
+                                 " WHERE `storage_index`=? AND `shnum`=?",
+                                 (si_s, shnum))
+        except Exception:
+            self._db.rollback()  # roll back the lease deletion
+            raise
+        else:
+            self._db.commit()
 
     def change_share_space(self, storage_index, shnum, used_space):
         si_s = si_b2a(storage_index)
         if self.debug: print "CHANGE_SHARE_SPACE", si_s, shnum, used_space
-        self._dirty = True
         self._cursor.execute("UPDATE `shares` SET `used_space`=?"
                              " WHERE `storage_index`=? AND `shnum`=?",
                              (used_space, si_s, shnum))
+        self._db.commit()
         if self._cursor.rowcount < 1:
             raise NonExistentShareError(si_s, shnum)
 
@@ -258,7 +261,6 @@ class LeaseDB:
         """
         si_s = si_b2a(storage_index)
         if self.debug: print "ADD_OR_RENEW_LEASES", si_s, shnum, ownerid, renewal_time, expiration_time
-        self._dirty = True
         if shnum is None:
             self._cursor.execute("SELECT `storage_index`, `shnum` FROM `shares`"
                                  " WHERE `storage_index`=?",
@@ -293,6 +295,7 @@ class LeaseDB:
             else:
                 self._cursor.execute("INSERT INTO `leases` VALUES (?,?,?,?,?,?)",
                                      (None, si_s, found_shnum, ownerid, renewal_time, expiration_time))
+            self._db.commit()
 
     def get_leases(self, storage_index, ownerid):
         si_s = si_b2a(storage_index)
@@ -333,12 +336,12 @@ class LeaseDB:
     def remove_leases_by_renewal_time(self, renewal_cutoff_time):
         self._cursor.execute("DELETE FROM `leases` WHERE `renewal_time` < ?",
                              (renewal_cutoff_time,))
-        self.commit(always=True)
+        self._db.commit()
 
     def remove_leases_by_expiration_time(self, expiration_cutoff_time):
         self._cursor.execute("DELETE FROM `leases` WHERE `expiration_time` IS NOT NULL AND `expiration_time` < ?",
                              (expiration_cutoff_time,))
-        self.commit(always=True)
+        self._db.commit()
 
     # history
 
@@ -351,10 +354,16 @@ class LeaseDB:
             first_cycle_to_retain = list(sorted(rows))[-(self.retained_history_entries - 1)][0]
             self._cursor.execute("DELETE FROM `crawler_history` WHERE `cycle` < ?",
                                  (first_cycle_to_retain,))
+            self._db.commit()
 
-        self._cursor.execute("INSERT OR REPLACE INTO `crawler_history` VALUES (?,?)",
-                             (cycle, json))
-        self.commit(always=True)
+        try:
+            self._cursor.execute("INSERT OR REPLACE INTO `crawler_history` VALUES (?,?)",
+                                 (cycle, json))
+        except Exception:
+            self._db.rollback()  # roll back the deletion of unretained entries
+            raise
+        else:
+            self._db.commit()
 
     def get_history(self):
         self._cursor.execute("SELECT `cycle`,`json` FROM `crawler_history`")
@@ -375,8 +384,3 @@ class LeaseDB:
         self._cursor.execute("SELECT `id`,`pubkey_vs`"
                              " FROM `accounts` ORDER BY `id` ASC")
         return self._cursor.fetchall()
-
-    def commit(self, always=False):
-        if self._dirty or always:
-            self._db.commit()
-            self._dirty = False

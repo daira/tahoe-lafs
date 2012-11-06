@@ -128,11 +128,6 @@ class AccountingCrawler(ShareCrawler):
 
         unleased_sharemap = self._leasedb.get_unleased_shares_for_prefix(prefix)
         d = for_items(_delete_share, unleased_sharemap)
-
-        def _commit(res):
-            self._leasedb.commit()
-            return res
-        d.addBoth(_commit)
         return d
 
     # these methods are for outside callers to use
