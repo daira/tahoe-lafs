@@ -436,9 +436,10 @@ class StorageServer(service.MultiService):
                     else:
                         # apply the write vector and update the lease
                         shares[sharenum].writev(datav, new_length)
-                        account.mark_share_as_stable(storage_index, sharenum,
-                                                     shares[sharenum].get_used_space())
+
                     account.add_or_renew_default_lease(storage_index, sharenum)
+                    account.mark_share_as_stable(storage_index, sharenum,
+                                                 shares[sharenum].get_used_space())
 
             if new_length == 0:
                 # delete empty bucket directories
