@@ -25,7 +25,7 @@ class AccountingCrawler(ShareCrawler):
     - Detect shares that have unexpectedly disappeared from storage.
     """
 
-    slow_start = 300 # don't start crawling for 5 minutes after startup
+    slow_start = 600 # don't start crawling for 10 minutes after startup
     minimum_cycle_time = 12*60*60 # not more than twice per day
 
     def __init__(self, server, statefile, leasedb):
