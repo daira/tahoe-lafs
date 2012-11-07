@@ -16,7 +16,7 @@ from allmydata.storage.mutable import MutableShareFile
 from allmydata.storage.immutable import BucketWriter, BucketReader, ShareFile
 from allmydata.storage.common import DataTooLargeError, storage_index_to_dir, \
      UnknownMutableContainerVersionError, UnknownImmutableContainerVersionError
-from allmydata.storage.leasedb import SHARETYPE_IMMUTABLE
+from allmydata.storage.leasedb import SHARETYPE_IMMUTABLE, SHARETYPE_MUTABLE
 from allmydata.storage.expiration import ExpirationPolicy
 from allmydata.immutable.layout import WriteBucketProxy, WriteBucketProxy_v2, \
      ReadBucketProxy
@@ -1217,7 +1217,7 @@ class MutableServer(unittest.TestCase):
         s0 = MutableShareFile(os.path.join(bucket_dir, "0"))
         s0.create("nodeid", secrets(0)[0])
 
-        ss.add_share("six", 0, 0, SHARETYPE_IMMUTABLE)
+        ss.add_share("six", 0, 0, SHARETYPE_MUTABLE)
         # adding a share does not immediately add a lease
         self.failUnlessEqual(len(ss.get_leases("six")), 0)
 
@@ -1228,8 +1228,7 @@ class MutableServer(unittest.TestCase):
         self.failUnlessEqual(ss.remote_add_lease("si18", "", ""), None)
         self.failUnlessEqual(len(ss.get_leases("si18")), 0)
 
-        # re-allocate the slots and use the same secrets, that should update
-        # the lease
+        # update the lease by writing
         write("si1", secrets(0), {0: ([], [(0,data)], None)}, [])
         self.failUnlessEqual(len(ss.get_leases("si1")), 1)
 
@@ -1237,7 +1236,7 @@ class MutableServer(unittest.TestCase):
         ss.remote_renew_lease("si1", secrets(0)[1])
         self.failUnlessEqual(len(ss.get_leases("si1")), 1)
 
-        # now allocate them using a different account.
+        # now allocate another lease using a different account
         write2("si1", secrets(1), {0: ([], [(0,data)], None)}, [])
         self.failUnlessEqual(len(ss.get_leases("si1")), 1)
         self.failUnlessEqual(len(ss2.get_leases("si1")), 1)
