@@ -291,8 +291,6 @@ class Client(node.Node, pollmixin.PollMixin):
 
         self.accountant = ss.get_accountant()
         self.accountant.set_expiration_policy(expiration_policy)
-        accountant_window = self.accountant.get_accountant_window(self.tub)
-
 
         d = self.when_tub_ready()
         # we can't do registerReference until the Tub is ready
@@ -300,16 +298,9 @@ class Client(node.Node, pollmixin.PollMixin):
             ann = {}
             ann["permutation-seed-base32"] = self._init_permutation_seed(ss)
 
-            accountant_furlfile = os.path.join(self.basedir, "private", "accountant.furl").encode(get_filesystem_encoding())
-            accountant_furl = self.tub.registerReference(accountant_window,
-                                                         furlFile=accountant_furlfile)
-            ann["accountant-FURL"] = accountant_furl
-
-            if True:
-                #legacy_account = self.accountant.get_anonymous_account()
-                anonymous_account_furlfile = os.path.join(self.basedir, "private", "storage.furl").encode(get_filesystem_encoding())
-                anonymous_account_furl = self.tub.registerReference(ss, furlFile=anonymous_account_furlfile)
-                ann["anonymous-storage-FURL"] = anonymous_account_furl
+            anonymous_account_furlfile = os.path.join(self.basedir, "private", "storage.furl").encode(get_filesystem_encoding())
+            anonymous_account_furl = self.tub.registerReference(ss, furlFile=anonymous_account_furlfile)
+            ann["anonymous-storage-FURL"] = anonymous_account_furl
 
             self.introducer_client.publish("storage", ann, self._server_key)
         d.addCallback(_publish)
@@ -336,17 +327,9 @@ class Client(node.Node, pollmixin.PollMixin):
         self.init_nodemaker()
 
     def init_client_storage_broker(self):
-        def _make_key():
-            sk_vs,vk_vs = keyutil.make_keypair()
-            return sk_vs+"\n" # priv-v0-BASE32
-        sk_vs = self.get_or_create_private_config("client.key", _make_key)
-        self.client_key = keyutil.parse_privkey(sk_vs) # (sk, vk_vs)
-        client_info = {"nickname": unicode(self.nickname)}
         # create a StorageFarmBroker object, for use by Uploader/Downloader
         # (and everybody else who wants to use storage servers)
-        sb = storage_client.StorageFarmBroker(self.tub, permute_peers=True,
-                                              client_key=self.client_key,
-                                              client_info=client_info)
+        sb = storage_client.StorageFarmBroker(self.tub, permute_peers=True)
         self.storage_broker = sb
 
         # load static server specifications from tahoe.cfg, if any.
