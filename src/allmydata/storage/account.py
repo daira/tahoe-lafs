@@ -32,7 +32,7 @@ class Account(Referenceable):
         self.connected = False
         self.connected_since = None
         self.connection = None
-        self.debug = True
+        self.debug = False
 
     def is_static(self):
         return self.owner_num in (0,1)
