@@ -579,6 +579,15 @@ class Server(unittest.TestCase):
         f2 = open(filename, "rb")
         self.failUnlessEqual(f2.read(5), "start")
 
+    def compare_leases(self, leases_a, leases_b, with_timestamps=True):
+        self.failUnlessEqual(len(leases_a), len(leases_b))
+        for i in range(len(leases_a)):
+            a = leases_a[i]
+            b = leases_b[i]
+            self.failUnlessEqual(a.owner_num, b.owner_num)
+            if with_timestamps:
+                self.failUnlessEqual(a.renewal_time, b.renewal_time)
+                self.failUnlessEqual(a.expiration_time, b.expiration_time)
 
     def test_leases(self):
         server = self.create("test_leases")
@@ -589,93 +598,53 @@ class Server(unittest.TestCase):
         sharenums = range(5)
         size = 100
 
-        rs0,cs0 = (hashutil.tagged_hash("blah", "%d" % self._lease_secret.next()),
-                   hashutil.tagged_hash("blah", "%d" % self._lease_secret.next()))
-        already,writers = ss.remote_allocate_buckets("si0", rs0, cs0,
+        # create a random non-numeric file in the bucket directory, to
+        # exercise the code that's supposed to ignore those.
+        bucket_dir = os.path.join(self.workdir("test_leases"),
+                                  "shares", storage_index_to_dir("six"))
+        os.makedirs(bucket_dir)
+        f = open(os.path.join(bucket_dir, "ignore_me.txt"), "w")
+        f.write("you ought to be ignoring me\n")
+        f.close()
+
+        already,writers = ss.remote_allocate_buckets("si1", "", "",
                                                      sharenums, size, canary)
         self.failUnlessEqual(len(already), 0)
         self.failUnlessEqual(len(writers), 5)
         for wb in writers.values():
             wb.remote_close()
 
-        leases = ss.get_leases("si0")
-        self.failUnlessEqual(len(leases), 1)
-        self.failUnlessEqual(set([l.renew_secret for l in leases]), set([rs0]))
-
-        rs1,cs1 = (hashutil.tagged_hash("blah", "%d" % self._lease_secret.next()),
-                   hashutil.tagged_hash("blah", "%d" % self._lease_secret.next()))
-        already,writers = ss.remote_allocate_buckets("si1", rs1, cs1,
-                                                     sharenums, size, canary)
-        for wb in writers.values():
-            wb.remote_close()
-
-        # take out a second lease on si1
-        rs2,cs2 = (hashutil.tagged_hash("blah", "%d" % self._lease_secret.next()),
-                   hashutil.tagged_hash("blah", "%d" % self._lease_secret.next()))
-        already,writers = ss.remote_allocate_buckets("si1", rs2, cs2,
-                                                     sharenums, size, canary)
-        self.failUnlessEqual(len(already), 5)
-        self.failUnlessEqual(len(writers), 0)
-
         leases = ss.get_leases("si1")
-        self.failUnlessEqual(len(leases), 2)
-        self.failUnlessEqual(set([l.renew_secret for l in leases]), set([rs1, rs2]))
+        self.failUnlessEqual(len(leases), 5)
 
-        # and a third lease, using add-lease
-        rs2a,cs2a = (hashutil.tagged_hash("blah", "%d" % self._lease_secret.next()),
-                     hashutil.tagged_hash("blah", "%d" % self._lease_secret.next()))
-        ss.remote_add_lease("si1", rs2a, cs2a)
-        leases = ss.get_leases("si1")
-        self.failUnlessEqual(len(leases), 3)
-        self.failUnlessEqual(set([l.renew_secret for l in leases]), set([rs1, rs2, rs2a]))
+        ss.add_share("six", 0, 0, SHARETYPE_IMMUTABLE)
+        # adding a share does not immediately add a lease
+        self.failUnlessEqual(len(ss.get_leases("six")), 0)
+
+        ss.add_or_renew_default_lease("six", 0)
+        self.failUnlessEqual(len(ss.get_leases("six")), 1)
 
         # add-lease on a missing storage index is silently ignored
         self.failUnlessEqual(ss.remote_add_lease("si18", "", ""), None)
+        self.failUnlessEqual(len(ss.get_leases("si18")), 0)
 
-        # check that si0 is readable
-        readers = ss.remote_get_buckets("si0")
-        self.failUnlessEqual(len(readers), 5)
+        all_leases = ss.get_leases("si1")
 
-        # renew the first lease. Only the proper renew_secret should work
-        ss.remote_renew_lease("si0", rs0)
-        self.failUnlessRaises(IndexError, ss.remote_renew_lease, "si0", cs0)
-        self.failUnlessRaises(IndexError, ss.remote_renew_lease, "si0", rs1)
+        # renew the lease directly
+        ss.remote_renew_lease("si1", "")
+        self.failUnlessEqual(len(ss.get_leases("si1")), 5)
+        self.compare_leases(all_leases, ss.get_leases("si1"), with_timestamps=False)
 
-        # check that si0 is still readable
-        readers = ss.remote_get_buckets("si0")
-        self.failUnlessEqual(len(readers), 5)
+        # Now allocate more leases using a different account.
+        # A new lease should be allocated for every share in the shareset.
+        ss2.remote_renew_lease("si1", "")
+        self.failUnlessEqual(len(ss.get_leases("si1")), 5)
+        self.failUnlessEqual(len(ss2.get_leases("si1")), 5)
 
-        # There is no such method as remote_cancel_lease for now -- see
-        # ticket #1528.
-        self.failIf(hasattr(ss, 'remote_cancel_lease'), \
-                        "ss should not have a 'remote_cancel_lease' method/attribute")
+        all_leases2 = ss2.get_leases("si1")
 
-        # test overlapping uploads
-        rs3,cs3 = (hashutil.tagged_hash("blah", "%d" % self._lease_secret.next()),
-                   hashutil.tagged_hash("blah", "%d" % self._lease_secret.next()))
-        rs4,cs4 = (hashutil.tagged_hash("blah", "%d" % self._lease_secret.next()),
-                   hashutil.tagged_hash("blah", "%d" % self._lease_secret.next()))
-        already,writers = ss.remote_allocate_buckets("si3", rs3, cs3,
-                                                     sharenums, size, canary)
-        self.failUnlessEqual(len(already), 0)
-        self.failUnlessEqual(len(writers), 5)
-        already2,writers2 = ss.remote_allocate_buckets("si3", rs4, cs4,
-                                                       sharenums, size, canary)
-        self.failUnlessEqual(len(already2), 0)
-        self.failUnlessEqual(len(writers2), 0)
-        for wb in writers.values():
-            wb.remote_close()
-
-        leases = ss.get_leases("si3")
-        self.failUnlessEqual(len(leases), 1)
-
-        already3,writers3 = ss.remote_allocate_buckets("si3", rs4, cs4,
-                                                       sharenums, size, canary)
-        self.failUnlessEqual(len(already3), 5)
-        self.failUnlessEqual(len(writers3), 0)
-
-        leases = ss.get_leases("si3")
-        self.failUnlessEqual(len(leases), 2)
+        ss2.remote_renew_lease("si1", "")
+        self.compare_leases(all_leases2, ss2.get_leases("si1"), with_timestamps=False)
 
     def test_readonly(self):
         workdir = self.workdir("test_readonly")
