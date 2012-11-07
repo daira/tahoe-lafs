@@ -51,8 +51,6 @@ class AccountingCrawler(ShareCrawler):
         # now check the database for everything in this prefix
         db_sharemap = self._leasedb.get_shares_for_prefix(prefix)
         db_shares = set(db_sharemap)
-        if db_sharemap:
-            print prefix, db_sharemap
 
         rec = self.state["cycle-to-date"]["space-recovered"]
         examined_sharesets = [set() for st in xrange(len(SHARETYPES))]
@@ -164,7 +162,6 @@ class AccountingCrawler(ShareCrawler):
         d[k] += delta
 
     def add_lease_age_to_histogram(self, age):
-        print "ADD_LEASE_AGE", age
         bin_interval = 24*60*60
         bin_number = int(age/bin_interval)
         bin_start = bin_number * bin_interval
