@@ -16,7 +16,7 @@ from allmydata.storage.mutable import MutableShareFile
 from allmydata.storage.immutable import BucketWriter, BucketReader, ShareFile
 from allmydata.storage.common import DataTooLargeError, storage_index_to_dir, \
      UnknownMutableContainerVersionError, UnknownImmutableContainerVersionError
-from allmydata.storage.leasedb import SHARETYPE_IMMUTABLE
+from allmydata.storage.leasedb import SHARETYPE_IMMUTABLE, SHARETYPE_MUTABLE
 from allmydata.storage.expiration import ExpirationPolicy
 from allmydata.immutable.layout import WriteBucketProxy, WriteBucketProxy_v2, \
      ReadBucketProxy
@@ -281,22 +281,26 @@ class Server(unittest.TestCase):
 
     def create(self, name, reserved_space=0, klass=StorageServer):
         workdir = self.workdir(name)
-        ss = klass(workdir, "\x00" * 20, reserved_space=reserved_space,
-                   stats_provider=FakeStatsProvider())
-        ss.setServiceParent(self.sparent)
-        return ss.get_accountant().get_anonymous_account()
+        server = klass(workdir, "\x00" * 20, reserved_space=reserved_space,
+                       stats_provider=FakeStatsProvider())
+        server.setServiceParent(self.sparent)
+        return server
 
     def test_create(self):
         self.create("test_create")
 
     def test_declares_fixed_1528(self):
-        ss = self.create("test_declares_fixed_1528")
+        server = self.create("test_declares_fixed_1528")
+        ss = server.get_accountant().get_anonymous_account()
+
         ver = ss.remote_get_version()
         sv1 = ver['http://allmydata.org/tahoe/protocols/storage/v1']
         self.failUnless(sv1.get('prevents-read-past-end-of-share-data'), sv1)
 
     def test_declares_maximum_share_sizes(self):
-        ss = self.create("test_declares_maximum_share_sizes")
+        server = self.create("test_declares_maximum_share_sizes")
+        ss = server.get_accountant().get_anonymous_account()
+
         ver = ss.remote_get_version()
         sv1 = ver['http://allmydata.org/tahoe/protocols/storage/v1']
         self.failUnlessIn('maximum-immutable-share-size', sv1)
@@ -320,7 +324,8 @@ class Server(unittest.TestCase):
         if avail <= 4*2**30:
             raise unittest.SkipTest("This test will spuriously fail if you have less than 4 GiB free on your filesystem.")
 
-        ss = self.create("test_large_share")
+        server = self.create("test_large_share")
+        ss = server.get_accountant().get_anonymous_account()
 
         already,writers = self.allocate(ss, "allocate", [0], 2**32+2)
         self.failUnlessEqual(already, set())
@@ -341,7 +346,9 @@ class Server(unittest.TestCase):
         share lots of leading bits with an extant share (but isn't the exact
         same storage index), this won't add an entry to the share directory.
         """
-        ss = self.create("test_dont_overfill_dirs")
+        server = self.create("test_dont_overfill_dirs")
+        ss = server.get_accountant().get_anonymous_account()
+
         already, writers = self.allocate(ss, "storageindex", [0], 10)
         for i, wb in writers.items():
             wb.remote_write(0, "%10d" % i)
@@ -362,7 +369,9 @@ class Server(unittest.TestCase):
         self.failUnlessEqual(children_of_storedir, new_children_of_storedir)
 
     def test_remove_incoming(self):
-        ss = self.create("test_remove_incoming")
+        server = self.create("test_remove_incoming")
+        ss = server.get_accountant().get_anonymous_account()
+
         already, writers = self.allocate(ss, "vid", range(3), 10)
         for i,wb in writers.items():
             wb.remote_write(0, "%10d" % i)
@@ -379,7 +388,9 @@ class Server(unittest.TestCase):
         # remote_abort, when called on a writer, should make sure that
         # the allocated size of the bucket is not counted by the storage
         # server when accounting for space.
-        ss = self.create("test_abort")
+        server = self.create("test_abort")
+        ss = server.get_accountant().get_anonymous_account()
+
         already, writers = self.allocate(ss, "allocate", [0, 1, 2], 150)
         self.failIfEqual(ss.server.allocated_size(), 0)
 
@@ -388,9 +399,9 @@ class Server(unittest.TestCase):
             writer.remote_abort()
         self.failUnlessEqual(ss.server.allocated_size(), 0)
 
-
     def test_allocate(self):
-        ss = self.create("test_allocate")
+        server = self.create("test_allocate")
+        ss = server.get_accountant().get_anonymous_account()
 
         self.failUnlessEqual(ss.remote_get_buckets("allocate"), {})
 
@@ -443,7 +454,9 @@ class Server(unittest.TestCase):
             wb.remote_abort()
 
     def test_bad_container_version(self):
-        ss = self.create("test_bad_container_version")
+        server = self.create("test_bad_container_version")
+        ss = server.get_accountant().get_anonymous_account()
+
         a,w = self.allocate(ss, "si1", [0], 10)
         w[0].remote_write(0, "\xff"*10)
         w[0].remote_close()
@@ -462,7 +475,9 @@ class Server(unittest.TestCase):
 
     def test_disconnect(self):
         # simulate a disconnection
-        ss = self.create("test_disconnect")
+        server = self.create("test_disconnect")
+        ss = server.get_accountant().get_anonymous_account()
+
         canary = FakeCanary()
         already,writers = self.allocate(ss, "disconnect", [0,1,2], 75, canary)
         self.failUnlessEqual(already, set())
@@ -485,7 +500,9 @@ class Server(unittest.TestCase):
             'avail': max(15000 - reserved_space, 0),
             }
 
-        ss = self.create("test_reserved_space", reserved_space=reserved_space)
+        server = self.create("test_reserved_space", reserved_space=reserved_space)
+        ss = server.get_accountant().get_anonymous_account()
+
         # 15k available, 10k reserved, leaves 5k for shares
 
         # a newly created and filled share incurs this much overhead, beyond
@@ -564,7 +581,10 @@ class Server(unittest.TestCase):
 
 
     def test_leases(self):
-        ss = self.create("test_leases")
+        server = self.create("test_leases")
+        ss = server.get_accountant().get_anonymous_account()
+        ss2 = server.get_accountant().get_starter_account()
+
         canary = FakeCanary()
         sharenums = range(5)
         size = 100
@@ -674,29 +694,9 @@ class Server(unittest.TestCase):
             # But if there are stats, readonly_storage means disk_avail=0
             self.failUnlessEqual(stats["storage_server.disk_avail"], 0)
 
-    def test_discard(self):
-        # discard is really only used for other tests, but we test it anyways
-        workdir = self.workdir("test_discard")
-        server = StorageServer(workdir, "\x00" * 20, discard_storage=True)
-        server.setServiceParent(self.sparent)
-        ss = server.get_accountant().get_anonymous_account()
-
-        already,writers = self.allocate(ss, "vid", [0,1,2], 75)
-        self.failUnlessEqual(already, set())
-        self.failUnlessEqual(set(writers.keys()), set([0,1,2]))
-        for i,wb in writers.items():
-            wb.remote_write(0, "%25d" % i)
-            wb.remote_close()
-        # since we discard the data, the shares should be present but sparse.
-        # Since we write with some seeks, the data we read back will be all
-        # zeros.
-        b = ss.remote_get_buckets("vid")
-        self.failUnlessEqual(set(b.keys()), set([0,1,2]))
-        self.failUnlessEqual(b[0].remote_read(0, 25), "\x00" * 25)
-
     def test_advise_corruption(self):
         workdir = self.workdir("test_advise_corruption")
-        server = StorageServer(workdir, "\x00" * 20, discard_storage=True)
+        server = StorageServer(workdir, "\x00" * 20)
         server.setServiceParent(self.sparent)
         ss = server.get_accountant().get_anonymous_account()
 
@@ -738,7 +738,6 @@ class Server(unittest.TestCase):
         self.failUnlessIn("storage_index: %s" % si1_s, report)
         self.failUnlessIn("share_number: 1", report)
         self.failUnlessIn("This share tastes like dust.", report)
-
 
 
 class MutableServer(unittest.TestCase):
@@ -1218,7 +1217,7 @@ class MutableServer(unittest.TestCase):
         s0 = MutableShareFile(os.path.join(bucket_dir, "0"))
         s0.create("nodeid", secrets(0)[0])
 
-        ss.add_share("six", 0, 0, SHARETYPE_IMMUTABLE)
+        ss.add_share("six", 0, 0, SHARETYPE_MUTABLE)
         # adding a share does not immediately add a lease
         self.failUnlessEqual(len(ss.get_leases("six")), 0)
 
@@ -1229,8 +1228,7 @@ class MutableServer(unittest.TestCase):
         self.failUnlessEqual(ss.remote_add_lease("si18", "", ""), None)
         self.failUnlessEqual(len(ss.get_leases("si18")), 0)
 
-        # re-allocate the slots and use the same secrets, that should update
-        # the lease
+        # update the lease by writing
         write("si1", secrets(0), {0: ([], [(0,data)], None)}, [])
         self.failUnlessEqual(len(ss.get_leases("si1")), 1)
 
@@ -1238,7 +1236,7 @@ class MutableServer(unittest.TestCase):
         ss.remote_renew_lease("si1", secrets(0)[1])
         self.failUnlessEqual(len(ss.get_leases("si1")), 1)
 
-        # now allocate them using a different account.
+        # now allocate another lease using a different account
         write2("si1", secrets(1), {0: ([], [(0,data)], None)}, [])
         self.failUnlessEqual(len(ss.get_leases("si1")), 1)
         self.failUnlessEqual(len(ss2.get_leases("si1")), 1)
