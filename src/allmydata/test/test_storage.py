@@ -674,29 +674,9 @@ class Server(unittest.TestCase):
             # But if there are stats, readonly_storage means disk_avail=0
             self.failUnlessEqual(stats["storage_server.disk_avail"], 0)
 
-    def test_discard(self):
-        # discard is really only used for other tests, but we test it anyways
-        workdir = self.workdir("test_discard")
-        server = StorageServer(workdir, "\x00" * 20, discard_storage=True)
-        server.setServiceParent(self.sparent)
-        ss = server.get_accountant().get_anonymous_account()
-
-        already,writers = self.allocate(ss, "vid", [0,1,2], 75)
-        self.failUnlessEqual(already, set())
-        self.failUnlessEqual(set(writers.keys()), set([0,1,2]))
-        for i,wb in writers.items():
-            wb.remote_write(0, "%25d" % i)
-            wb.remote_close()
-        # since we discard the data, the shares should be present but sparse.
-        # Since we write with some seeks, the data we read back will be all
-        # zeros.
-        b = ss.remote_get_buckets("vid")
-        self.failUnlessEqual(set(b.keys()), set([0,1,2]))
-        self.failUnlessEqual(b[0].remote_read(0, 25), "\x00" * 25)
-
     def test_advise_corruption(self):
         workdir = self.workdir("test_advise_corruption")
-        server = StorageServer(workdir, "\x00" * 20, discard_storage=True)
+        server = StorageServer(workdir, "\x00" * 20)
         server.setServiceParent(self.sparent)
         ss = server.get_accountant().get_anonymous_account()
 

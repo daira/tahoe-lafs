@@ -42,7 +42,7 @@ class StorageServer(service.MultiService):
     DEFAULT_EXPIRATION_POLICY = ExpirationPolicy(enabled=False)
 
     def __init__(self, storedir, nodeid, reserved_space=0,
-                 discard_storage=False, readonly_storage=False,
+                 readonly_storage=False,
                  stats_provider=None,
                  expiration_policy=None):
         service.MultiService.__init__(self)
@@ -57,7 +57,6 @@ class StorageServer(service.MultiService):
         self.corruption_advisory_dir = os.path.join(storedir,
                                                     "corruption-advisories")
         self.reserved_space = int(reserved_space)
-        self.no_storage = discard_storage
         self.readonly_storage = readonly_storage
         self.stats_provider = stats_provider
         if self.stats_provider:
@@ -301,8 +300,6 @@ class StorageServer(service.MultiService):
                 bw = BucketWriter(self, account, storage_index, shnum,
                                   incominghome, finalhome,
                                   max_space_per_bucket, canary)
-                if self.no_storage:
-                    bw.throw_out_all_data = True
                 bucketwriters[shnum] = bw
                 self._active_writers[bw] = 1
                 if limited:
