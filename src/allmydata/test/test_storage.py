@@ -3101,7 +3101,6 @@ class AccountingCrawlerTest(unittest.TestCase, pollmixin.PollMixin, CrawlerTestM
             self.failUnlessEqual(type(lah), list)
             self.failUnlessEqual(len(lah), 1)
             self.failUnlessEqual(lah, [ (0.0, DAY, 1) ] )
-            #self.failUnlessEqual(so_far["leases-per-share-histogram"], {1: 1})
             self.failUnlessEqual(so_far["corrupt-shares"], [])
             sr1 = so_far["space-recovered"]
             print "!!!", sr1
@@ -3150,7 +3149,6 @@ class AccountingCrawlerTest(unittest.TestCase, pollmixin.PollMixin, CrawlerTestM
             self.failUnlessEqual(len(lah), 1)
             self.failUnlessEqual(tuple(lah[0]), (0.0, DAY, 6) )
 
-            #self.failUnlessEqual(last["leases-per-share-histogram"], {1: 2, 2: 2})
             self.failUnlessEqual(last["corrupt-shares"], [])
 
             rec = last["space-recovered"]
@@ -3284,7 +3282,6 @@ class AccountingCrawlerTest(unittest.TestCase, pollmixin.PollMixin, CrawlerTestM
             self.failUnlessEqual(cem[2], None)
             self.failUnlessEqual(cem[3][0], "mutable")
             self.failUnlessEqual(cem[3][1], "immutable")
-            self.failUnlessEqual(last["leases-per-share-histogram"], {1: 2, 2: 2})
 
             rec = last["space-recovered"]
             self.failUnlessEqual(rec["examined-buckets"], 4)
@@ -3409,8 +3406,6 @@ class AccountingCrawlerTest(unittest.TestCase, pollmixin.PollMixin, CrawlerTestM
             self.failUnlessEqual(cem[2], then)
             self.failUnlessEqual(cem[3][0], "mutable")
             self.failUnlessEqual(cem[3][1], "immutable")
-            self.failUnlessEqual(last["leases-per-share-histogram"],
-                                 {1: 2, 2: 2})
 
             rec = last["space-recovered"]
             self.failUnlessEqual(rec["examined-buckets"], 4)

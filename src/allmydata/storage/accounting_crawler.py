@@ -199,7 +199,6 @@ class AccountingCrawler(ShareCrawler):
         so_far = {"corrupt-shares": [],
                   "space-recovered": recovered,
                   "lease-age-histogram": {}, # (minage,maxage)->count
-                  "leases-per-share-histogram": {}, # leasecount->numshares
                   }
         return so_far
 
@@ -241,7 +240,6 @@ class AccountingCrawler(ShareCrawler):
         # reason.
         lah = self.convert_lease_age_histogram(s["lease-age-histogram"])
         h["lease-age-histogram"] = lah
-        h["leases-per-share-histogram"] = s["leases-per-share-histogram"].copy()
         h["corrupt-shares"] = s["corrupt-shares"][:]
         # note: if ["shares-recovered"] ever acquires an internal dict, this
         # copy() needs to become a deepcopy
@@ -263,7 +261,6 @@ class AccountingCrawler(ShareCrawler):
           expiration-enabled
           configured-expiration-mode
           lease-age-histogram (list of (minage,maxage,sharecount) tuples)
-          leases-per-share-histogram
           corrupt-shares (list of (si_b32,shnum) tuples, minimal verification)
           space-recovered
 
@@ -282,7 +279,6 @@ class AccountingCrawler(ShareCrawler):
           expiration-enabled
           configured-expiration-mode
           lease-age-histogram
-          leases-per-share-histogram
           corrupt-shares
           space-recovered
 
@@ -305,6 +301,7 @@ class AccountingCrawler(ShareCrawler):
 
         The 'original-*' and 'configured-*' keys that were populated in
         pre-leasedb versions are no longer supported.
+        The 'leases-per-share-histogram' is also no longer supported.
         """
         progress = self.get_progress()
 
