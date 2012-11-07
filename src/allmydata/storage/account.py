@@ -32,7 +32,7 @@ class Account(Referenceable):
         self.connected = False
         self.connected_since = None
         self.connection = None
-        self.debug = True
+        self.debug = False
 
     def is_static(self):
         return self.owner_num in (0,1)
@@ -47,12 +47,12 @@ class Account(Referenceable):
         return (renewal_time, renewal_time + 31*24*60*60)
 
     # immutable.BucketWriter.close() does:
-    #  add_share(), add_lease(), mark_share_as_stable()
+    #  add_share(), add_or_renew_lease(), mark_share_as_stable()
 
-    # mutable_writev() does:
+    # mutable writev() does:
     #  deleted shares: mark_share_as_going(), remove_share_and_leases()
-    #  new shares: add_share(), add_lease(), mark_share_as_stable()
-    #  changed shares: change_share_space(), add_lease()
+    #  new shares: add_share(), add_or_renew_lease(), mark_share_as_stable()
+    #  changed shares: change_share_space(), add_or_renew_lease()
 
     def add_share(self, storage_index, shnum, used_space, sharetype):
         if self.debug: print "ADD_SHARE", si_b2a(storage_index), shnum, used_space, sharetype

@@ -320,6 +320,7 @@ class LeaseDB:
         return map(_to_age, rows)
 
     def get_unleased_shares_for_prefix(self, prefix):
+        if self.debug: print "GET_UNLEASED_SHARES_FOR_PREFIX", prefix
         # This would be simpler, but it doesn't work because 'NOT IN' doesn't support multiple columns.
         #query = ("SELECT `storage_index`, `shnum`, `used_space`, `sharetype` FROM `shares`"
         #         " WHERE (`storage_index`, `shnum`) NOT IN (SELECT DISTINCT `storage_index`, `shnum` FROM `leases`)")
@@ -334,11 +335,13 @@ class LeaseDB:
         return db_sharemap
 
     def remove_leases_by_renewal_time(self, renewal_cutoff_time):
+        if self.debug: print "REMOVE_LEASES_BY_RENEWAL_TIME", renewal_cutoff_time
         self._cursor.execute("DELETE FROM `leases` WHERE `renewal_time` < ?",
                              (renewal_cutoff_time,))
         self._db.commit()
 
     def remove_leases_by_expiration_time(self, expiration_cutoff_time):
+        if self.debug: print "REMOVE_LEASES_BY_EXPIRATION_TIME", expiration_cutoff_time
         self._cursor.execute("DELETE FROM `leases` WHERE `expiration_time` IS NOT NULL AND `expiration_time` < ?",
                              (expiration_cutoff_time,))
         self._db.commit()
