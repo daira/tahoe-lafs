@@ -170,7 +170,6 @@ class AccountingCrawler(ShareCrawler):
         self.increment(self.state["cycle-to-date"]["lease-age-histogram"], k, 1)
 
     def convert_lease_age_histogram(self, lah):
-        print "lah =", lah
         # convert { (minage,maxage) : count } into [ (minage,maxage,count) ]
         # since the former is not JSON-safe (JSON dictionaries must have
         # string keys).
@@ -209,14 +208,12 @@ class AccountingCrawler(ShareCrawler):
         return recovered
 
     def started_cycle(self, cycle):
-        print "STARTED_CYCLE"
         self.state["cycle-to-date"] = self.create_empty_cycle_dict()
 
         current_time = time.time()
         self._expiration_policy.remove_expired_leases(self._leasedb, current_time)
 
     def finished_cycle(self, cycle):
-        print "FINISHED_CYCLE!"
         # add to our history state, prune old history
         h = {}
 
