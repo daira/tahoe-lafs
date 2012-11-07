@@ -47,6 +47,10 @@ from allmydata.storage.leasedb import SHARETYPE_IMMUTABLE
 # forgets about leases and only remembers end-of-share
 class ShareFile:
     sharetype = "immutable"
+    LEASE_SIZE = struct.calcsize(">L32s32sL")
+    HEADER = ">LLL"
+    HEADER_SIZE = struct.calcsize(HEADER)
+    DATA_OFFSET = HEADER_SIZE
 
     def __init__(self, filename, max_size=None, create=False):
         """ If max_size is not None then I won't allow more than max_size to be written to me. If create=True and max_size must not be None. """
@@ -70,15 +74,23 @@ class ShareFile:
             # clients to read the first part of the share.
             f.write(struct.pack(">LLL", 1, min(2**32-1, max_size), 0))
             f.close()
+            self._data_length = max_size
         else:
             f = open(self.home, 'rb')
-            (version, unused) = struct.unpack(">LL", f.read(0x8))
-            f.close()
+            try:
+                (version, unused, num_leases) = struct.unpack(self.HEADER, f.read(self.HEADER_SIZE))
+            finally:
+                f.close()
             if version != 1:
                 msg = "sharefile %s had version %d but we wanted 1" % \
                       (filename, version)
                 raise UnknownImmutableContainerVersionError(msg)
-        self._data_offset = 0xc
+
+            filesize = os.stat(self.home).st_size
+            self._data_length = filesize - self.DATA_OFFSET - (num_leases * self.LEASE_SIZE)
+
+        # TODO: raise a better exception.
+        assert self._data_length >= 0, self._data_length
 
     def get_used_space(self):
         return get_used_space(FilePath(self.home))
@@ -91,15 +103,19 @@ class ShareFile:
 
     def read_share_data(self, offset, length):
         precondition(offset >= 0)
-        # reads beyond the end of the data are truncated. Reads that start
-        # beyond the end of the data return an empty string. Shares that have
-        # vestigal leases on the end of the file will allow a bit of
-        # overread, since we're no longer keeping track of how much leftover
-        # data is present.
-        seekpos = self._data_offset+offset
+
+        # Reads beyond the end of the data are truncated. Reads that start
+        # beyond the end of the data return an empty string.
+        seekpos = self.DATA_OFFSET + offset
+        actuallength = max(0, min(length, self._data_length - offset))
+        if actuallength == 0:
+            return ""
         f = open(self.home, 'rb')
-        f.seek(seekpos)
-        return f.read(length)
+        try:
+            f.seek(seekpos)
+            return f.read(actuallength)
+        finally:
+            f.close()
 
     def write_share_data(self, offset, data):
         length = len(data)
@@ -107,11 +123,13 @@ class ShareFile:
         if self._max_size is not None and offset+length > self._max_size:
             raise DataTooLargeError(self._max_size, offset, length)
         f = open(self.home, 'rb+')
-        real_offset = self._data_offset+offset
-        f.seek(real_offset)
-        assert f.tell() == real_offset
-        f.write(data)
-        f.close()
+        try:
+            real_offset = self.DATA_OFFSET + offset
+            f.seek(real_offset)
+            assert f.tell() == real_offset
+            f.write(data)
+        finally:
+            f.close()
 
 
 class BucketWriter(Referenceable):

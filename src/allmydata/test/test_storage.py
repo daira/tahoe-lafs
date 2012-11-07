@@ -13,7 +13,7 @@ from allmydata import interfaces
 from allmydata.util import fileutil, hashutil, base32, pollmixin, time_format
 from allmydata.storage.server import StorageServer
 from allmydata.storage.mutable import MutableShareFile
-from allmydata.storage.immutable import BucketWriter, BucketReader
+from allmydata.storage.immutable import BucketWriter, BucketReader, ShareFile
 from allmydata.storage.common import DataTooLargeError, storage_index_to_dir, \
      UnknownMutableContainerVersionError, UnknownImmutableContainerVersionError
 from allmydata.storage.leasedb import SHARETYPE_IMMUTABLE
@@ -120,7 +120,7 @@ class Bucket(BucketTestMixin, unittest.TestCase):
         # -- see allmydata/immutable/layout.py . This test, which is
         # simulating a client, just sends 'a'.
         share_data = 'a'
-        extra_data = 'b'
+        extra_data = 'b' * ShareFile.LEASE_SIZE
         share_file_data = containerdata + share_data + extra_data
 
         incoming, final = self.make_workdir("test_read_past_end_of_share_data")
