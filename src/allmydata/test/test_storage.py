@@ -3292,10 +3292,6 @@ class AccountingCrawlerTest(unittest.TestCase, pollmixin.PollMixin, CrawlerTestM
             # this file", so merely assert that it's a number
             self.failUnless(rec["actual-diskbytes"] >= 0,
                             rec["actual-diskbytes"])
-            self.failUnless(rec["original-diskbytes"] >= 0,
-                            rec["original-diskbytes"])
-            self.failUnless(rec["configured-diskbytes"] >= 0,
-                            rec["configured-diskbytes"])
         d.addCallback(_after_first_cycle)
 
         d.addCallback(lambda ign: self.render1(webstatus))
