@@ -188,7 +188,8 @@ class Basic(testutil.ReallyEqualMixin, unittest.TestCase):
                            "[storage]\n" + \
                            "enabled = true\n")
         c = client.Client(basedir)
-        ss = c.getServiceNamed("storage")
+        server = c.getServiceNamed("storage")
+        ss = server.get_accountant().get_anonymous_account()
         verdict = ss.remote_get_version()
         self.failUnlessReallyEqual(verdict["application-version"],
                                    str(allmydata.__full_version__))
