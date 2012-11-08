@@ -62,7 +62,7 @@ class MutableShareFile:
             data = f.read(self.HEADER_SIZE)
             (magic,
              write_enabler_nodeid, write_enabler,
-             data_length, extra_least_offset) = \
+             data_length, extra_lease_offset) = \
              struct.unpack(">32s20s32sQQ", data)
             if magic != self.MAGIC:
                 msg = "sharefile %s had magic '%r' but we wanted '%r'" % \
@@ -107,9 +107,17 @@ class MutableShareFile:
         (data_length,) = struct.unpack(">Q", f.read(8))
         return data_length
 
+    def _read_container_size(self, f):
+        f.seek(self.DATA_LENGTH_OFFSET + 8)
+        (extra_lease_offset,) = struct.unpack(">Q", f.read(8))
+        return extra_lease_offset - self.DATA_OFFSET
+
     def _write_data_length(self, f, data_length):
+        extra_lease_offset = self.DATA_OFFSET + data_length
         f.seek(self.DATA_LENGTH_OFFSET)
-        f.write(struct.pack(">Q", data_length))
+        f.write(struct.pack(">QQ", data_length, extra_lease_offset))
+        f.seek(extra_lease_offset)
+        f.write(struct.pack(">L", 0))
 
     def _read_share_data(self, f, offset, length):
         precondition(offset >= 0)
@@ -124,11 +132,6 @@ class MutableShareFile:
         f.seek(self.DATA_OFFSET+offset)
         data = f.read(length)
         return data
-
-    def _change_container_size(self, f, new_container_size):
-        if new_container_size > self.MAX_SIZE:
-            raise DataTooLargeError()
-        pass # TODO: with no leases, is this a nop?
 
     def _write_share_data(self, f, offset, data):
         length = len(data)
@@ -177,12 +180,6 @@ class MutableShareFile:
         f.close()
         return datav
 
-#    def remote_get_length(self):
-#        f = open(self.home, 'rb')
-#        data_length = self._read_data_length(f)
-#        f.close()
-#        return data_length
-
     def check_write_enabler(self, write_enabler, si_s):
         f = open(self.home, 'rb+')
         (real_write_enabler, write_enabler_nodeid) = \
@@ -221,9 +218,7 @@ class MutableShareFile:
             cur_length = self._read_data_length(f)
             if new_length < cur_length:
                 self._write_data_length(f, new_length)
-                # TODO: if we're going to shrink the share file when the
-                # share data has shrunk, then call
-                # self._change_container_size() here.
+                # TODO: shrink the share file.
         f.close()
 
 def testv_compare(a, op, b):
