@@ -229,14 +229,14 @@ def corrupt(res, s, offset, shnums_to_corrupt=None, offset_offset=0):
 def make_storagebroker(s=None, num_peers=10):
     if not s:
         s = FakeStorage()
-    peerids = [tagged_hash("peerid", "%d" % i)[:20]
-               for i in range(num_peers)]
+    serverids = [tagged_hash("peerid", "%d" % i)[:20]
+                 for i in range(num_peers)]
     storage_broker = StorageFarmBroker(None, True)
-    for peerid in peerids:
-        fss = FakeStorageServer(peerid, s)
-        ann = {"anonymous-storage-FURL": "pb://%s@nowhere/fake" % base32.b2a(peerid),
-               "permutation-seed-base32": base32.b2a(peerid) }
-        storage_broker.test_add_rref(None, fss, ann)
+    for serverid in serverids:
+        fss = FakeStorageServer(serverid, s)
+        ann = {"anonymous-storage-FURL": "pb://%s@nowhere/fake" % base32.b2a(serverid),
+               "permutation-seed-base32": base32.b2a(serverid) }
+        storage_broker.test_add_rref(serverid, fss, ann)
     return storage_broker
 
 def make_nodemaker(s=None, num_peers=10, keysize=TEST_RSA_KEY_SIZE):
