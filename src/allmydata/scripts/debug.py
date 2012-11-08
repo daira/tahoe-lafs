@@ -136,11 +136,11 @@ def dump_immutable_chk_share(f, out, options):
     if options['offsets']:
         print >>out
         print >>out, " Section Offsets:"
-        print >>out, "%20s: %s" % ("share data", f._data_offset)
+        print >>out, "%20s: %s" % ("share data", f.DATA_OFFSET)
         for k in ["data", "plaintext_hash_tree", "crypttext_hash_tree",
                   "block_hashes", "share_hashes", "uri_extension"]:
             name = {"data": "block data"}.get(k,k)
-            offset = f._data_offset + offsets[k]
+            offset = f.DATA_OFFSET + offsets[k]
             print >>out, "  %20s: %s   (0x%x)" % (name, offset, offset)
         #print >>out, "%20s: %s" % ("leases", f._lease_offset)
 
@@ -955,8 +955,8 @@ def corrupt_share(options):
         f = ShareFile(fn)
         bp = ReadBucketProxy(None, None, '')
         offsets = bp._parse_offsets(f.read_share_data(0, 0x24))
-        start = f._data_offset + offsets["data"]
-        end = f._data_offset + offsets["plaintext_hash_tree"]
+        start = f.DATA_OFFSET + offsets["data"]
+        end = f.DATA_OFFSET + offsets["plaintext_hash_tree"]
         flip_bit(start, end)
 
 
