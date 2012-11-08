@@ -161,10 +161,8 @@ def dump_mutable_share(options):
     m = MutableShareFile(options['filename'])
     f = open(options['filename'], "rb")
     WE, nodeid = m._read_write_enabler_and_nodeid(f)
-    num_extra_leases = m._read_num_extra_leases(f)
     data_length = m._read_data_length(f)
-    extra_lease_offset = m._read_extra_lease_offset(f)
-    container_size = extra_lease_offset - m.DATA_OFFSET
+    container_size = m._read_container_size(f)
 
     share_type = "unknown"
     f.seek(m.DATA_OFFSET)
@@ -181,7 +179,6 @@ def dump_mutable_share(options):
     print >>out, " share_type: %s" % share_type
     print >>out, " write_enabler: %s" % base32.b2a(WE)
     print >>out, " WE for nodeid: %s" % idlib.nodeid_b2a(nodeid)
-    print >>out, " num_extra_leases: %d" % num_extra_leases
     print >>out, " container_size: %d" % container_size
     print >>out, " data_length: %d" % data_length
     print >>out
