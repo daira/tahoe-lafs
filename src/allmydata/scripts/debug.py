@@ -136,25 +136,12 @@ def dump_immutable_chk_share(f, out, options):
     if options['offsets']:
         print >>out
         print >>out, " Section Offsets:"
-        print >>out, "%20s: %s" % ("share data", f._data_offset)
+        print >>out, "%20s: %s" % ("share data", f.DATA_OFFSET)
         for k in ["data", "plaintext_hash_tree", "crypttext_hash_tree",
                   "block_hashes", "share_hashes", "uri_extension"]:
             name = {"data": "block data"}.get(k,k)
-            offset = f._data_offset + offsets[k]
+            offset = f.DATA_OFFSET + offsets[k]
             print >>out, "  %20s: %s   (0x%x)" % (name, offset, offset)
-        #print >>out, "%20s: %s" % ("leases", f._lease_offset)
-
-def dump_immutable_lease_info(f, out):
-    # display lease information too
-    print >>out
-    leases = list(f.get_leases())
-    if leases:
-        for i,lease in enumerate(leases):
-            when = format_expiration_time(lease.expiration_time)
-            print >>out, " Lease #%d: owner=%d, expire in %s" \
-                  % (i, lease.owner_num, when)
-    else:
-        print >>out, " No leases."
 
 def format_expiration_time(expiration_time):
     now = time.time()
@@ -178,7 +165,6 @@ def dump_mutable_share(options):
     data_length = m._read_data_length(f)
     extra_lease_offset = m._read_extra_lease_offset(f)
     container_size = extra_lease_offset - m.DATA_OFFSET
-    leases = list(m._enumerate_leases(f))
 
     share_type = "unknown"
     f.seek(m.DATA_OFFSET)
@@ -198,18 +184,6 @@ def dump_mutable_share(options):
     print >>out, " num_extra_leases: %d" % num_extra_leases
     print >>out, " container_size: %d" % container_size
     print >>out, " data_length: %d" % data_length
-    if leases:
-        for (leasenum, lease) in leases:
-            print >>out
-            print >>out, " Lease #%d:" % leasenum
-            print >>out, "  ownerid: %d" % lease.owner_num
-            when = format_expiration_time(lease.expiration_time)
-            print >>out, "  expires in %s" % when
-            print >>out, "  renew_secret: %s" % base32.b2a(lease.renew_secret)
-            print >>out, "  cancel_secret: %s" % base32.b2a(lease.cancel_secret)
-            print >>out, "  secrets are for nodeid: %s" % idlib.nodeid_b2a(lease.nodeid)
-    else:
-        print >>out, "No leases."
     print >>out
 
     if share_type == "SDMF":
@@ -287,7 +261,7 @@ def dump_SDMF_share(m, length, options):
         print >>out, " Section Offsets:"
         def printoffset(name, value, shift=0):
             print >>out, "%s%20s: %s   (0x%x)" % (" "*shift, name, value, value)
-        printoffset("first lease", m.HEADER_SIZE)
+        printoffset("end of header", m.HEADER_SIZE)
         printoffset("share data", m.DATA_OFFSET)
         o_seqnum = m.DATA_OFFSET + struct.calcsize(">B")
         printoffset("seqnum", o_seqnum, 2)
@@ -301,7 +275,6 @@ def dump_SDMF_share(m, length, options):
             offset = m.DATA_OFFSET + offsets[k]
             printoffset(name, offset, 2)
         f = open(options['filename'], "rb")
-        printoffset("extra leases", m._read_extra_lease_offset(f) + 4)
         f.close()
 
     print >>out
@@ -382,7 +355,7 @@ def dump_MDMF_share(m, length, options):
         print >>out, " Section Offsets:"
         def printoffset(name, value, shift=0):
             print >>out, "%s%.20s: %s   (0x%x)" % (" "*shift, name, value, value)
-        printoffset("first lease", m.HEADER_SIZE, 2)
+        printoffset("end of header", m.HEADER_SIZE, 2)
         printoffset("share data", m.DATA_OFFSET, 2)
         o_seqnum = m.DATA_OFFSET + struct.calcsize(">B")
         printoffset("seqnum", o_seqnum, 4)
@@ -398,7 +371,6 @@ def dump_MDMF_share(m, length, options):
             offset = m.DATA_OFFSET + offsets[k]
             printoffset(name, offset, 4)
         f = open(options['filename'], "rb")
-        printoffset("extra leases", m._read_extra_lease_offset(f) + 4, 2)
         f.close()
 
     print >>out
@@ -410,11 +382,7 @@ class DumpCapOptions(usage.Options):
         return "Usage: tahoe debug dump-cap [options] FILECAP"
     optParameters = [
         ["nodeid", "n",
-         None, "Specify the storage server nodeid (ASCII), to construct WE and secrets."],
-        ["client-secret", "c", None,
-         "Specify the client's base secret (ASCII), to construct secrets."],
-        ["client-dir", "d", None,
-         "Specify the client's base directory, from which a -c secret will be read."],
+         None, "Specify the storage server nodeid (ASCII), to construct the write enabler."],
         ]
     def parseArgs(self, cap):
         self.cap = cap
@@ -432,16 +400,14 @@ This may be useful to determine if a read-cap and a write-cap refer to the
 same time, or to extract the storage-index from a file-cap (to then use with
 find-shares)
 
-If additional information is provided (storage server nodeid and/or client
-base secret), this command will compute the shared secrets used for the
-write-enabler and for lease-renewal.
+For mutable write-caps, if the storage server nodeid is provided, this command
+will compute the write enabler.
 """
         return t
 
 
 def dump_cap(options):
     from allmydata import uri
-    from allmydata.util import base32
     from base64 import b32decode
     import urlparse, urllib
 
@@ -450,15 +416,6 @@ def dump_cap(options):
     nodeid = None
     if options['nodeid']:
         nodeid = b32decode(options['nodeid'].upper())
-    secret = None
-    if options['client-secret']:
-        secret = base32.a2b(options['client-secret'])
-    elif options['client-dir']:
-        secretfile = os.path.join(options['client-dir'], "private", "secret")
-        try:
-            secret = base32.a2b(open(secretfile, "r").read().strip())
-        except EnvironmentError:
-            pass
 
     if cap.startswith("http"):
         scheme, netloc, path, params, query, fragment = urlparse.urlparse(cap)
@@ -468,29 +425,9 @@ def dump_cap(options):
     u = uri.from_string(cap)
 
     print >>out
-    dump_uri_instance(u, nodeid, secret, out)
+    dump_uri_instance(u, nodeid, out)
 
-def _dump_secrets(storage_index, secret, nodeid, out):
-    from allmydata.util import hashutil
-    from allmydata.util import base32
-
-    if secret:
-        crs = hashutil.my_renewal_secret_hash(secret)
-        print >>out, " client renewal secret:", base32.b2a(crs)
-        frs = hashutil.file_renewal_secret_hash(crs, storage_index)
-        print >>out, " file renewal secret:", base32.b2a(frs)
-        if nodeid:
-            renew = hashutil.bucket_renewal_secret_hash(frs, nodeid)
-            print >>out, " lease renewal secret:", base32.b2a(renew)
-        ccs = hashutil.my_cancel_secret_hash(secret)
-        print >>out, " client cancel secret:", base32.b2a(ccs)
-        fcs = hashutil.file_cancel_secret_hash(ccs, storage_index)
-        print >>out, " file cancel secret:", base32.b2a(fcs)
-        if nodeid:
-            cancel = hashutil.bucket_cancel_secret_hash(fcs, nodeid)
-            print >>out, " lease cancel secret:", base32.b2a(cancel)
-
-def dump_uri_instance(u, nodeid, secret, out, show_header=True):
+def dump_uri_instance(u, nodeid, out, show_header=True):
     from allmydata import uri
     from allmydata.storage.server import si_b2a
     from allmydata.util import base32, hashutil
@@ -504,7 +441,6 @@ def dump_uri_instance(u, nodeid, secret, out, show_header=True):
         print >>out, " size:", u.size
         print >>out, " k/N: %d/%d" % (u.needed_shares, u.total_shares)
         print >>out, " storage index:", si_b2a(u.get_storage_index())
-        _dump_secrets(u.get_storage_index(), secret, nodeid, out)
     elif isinstance(u, uri.CHKFileVerifierURI):
         if show_header:
             print >>out, "CHK Verifier URI:"
@@ -530,7 +466,6 @@ def dump_uri_instance(u, nodeid, secret, out, show_header=True):
             we = hashutil.ssk_write_enabler_hash(u.writekey, nodeid)
             print >>out, " write_enabler:", base32.b2a(we)
             print >>out
-        _dump_secrets(u.get_storage_index(), secret, nodeid, out)
     elif isinstance(u, uri.ReadonlySSKFileURI):
         if show_header:
             print >>out, "SDMF Read-only URI:"
@@ -555,7 +490,6 @@ def dump_uri_instance(u, nodeid, secret, out, show_header=True):
             we = hashutil.ssk_write_enabler_hash(u.writekey, nodeid)
             print >>out, " write_enabler:", base32.b2a(we)
             print >>out
-        _dump_secrets(u.get_storage_index(), secret, nodeid, out)
     elif isinstance(u, uri.ReadonlyMDMFFileURI):
         if show_header:
             print >>out, "MDMF Read-only URI:"
@@ -572,37 +506,37 @@ def dump_uri_instance(u, nodeid, secret, out, show_header=True):
     elif isinstance(u, uri.ImmutableDirectoryURI): # CHK-based directory
         if show_header:
             print >>out, "CHK Directory URI:"
-        dump_uri_instance(u._filenode_uri, nodeid, secret, out, False)
+        dump_uri_instance(u._filenode_uri, nodeid, out, False)
     elif isinstance(u, uri.ImmutableDirectoryURIVerifier):
         if show_header:
             print >>out, "CHK Directory Verifier URI:"
-        dump_uri_instance(u._filenode_uri, nodeid, secret, out, False)
+        dump_uri_instance(u._filenode_uri, nodeid, out, False)
 
     elif isinstance(u, uri.DirectoryURI): # SDMF-based directory
         if show_header:
             print >>out, "Directory Writeable URI:"
-        dump_uri_instance(u._filenode_uri, nodeid, secret, out, False)
+        dump_uri_instance(u._filenode_uri, nodeid, out, False)
     elif isinstance(u, uri.ReadonlyDirectoryURI):
         if show_header:
             print >>out, "Directory Read-only URI:"
-        dump_uri_instance(u._filenode_uri, nodeid, secret, out, False)
+        dump_uri_instance(u._filenode_uri, nodeid, out, False)
     elif isinstance(u, uri.DirectoryURIVerifier):
         if show_header:
             print >>out, "Directory Verifier URI:"
-        dump_uri_instance(u._filenode_uri, nodeid, secret, out, False)
+        dump_uri_instance(u._filenode_uri, nodeid, out, False)
 
     elif isinstance(u, uri.MDMFDirectoryURI): # MDMF-based directory
         if show_header:
             print >>out, "Directory Writeable URI:"
-        dump_uri_instance(u._filenode_uri, nodeid, secret, out, False)
+        dump_uri_instance(u._filenode_uri, nodeid, out, False)
     elif isinstance(u, uri.ReadonlyMDMFDirectoryURI):
         if show_header:
             print >>out, "Directory Read-only URI:"
-        dump_uri_instance(u._filenode_uri, nodeid, secret, out, False)
+        dump_uri_instance(u._filenode_uri, nodeid, out, False)
     elif isinstance(u, uri.MDMFDirectoryURIVerifier):
         if show_header:
             print >>out, "Directory Verifier URI:"
-        dump_uri_instance(u._filenode_uri, nodeid, secret, out, False)
+        dump_uri_instance(u._filenode_uri, nodeid, out, False)
 
     else:
         print >>out, "unknown cap type"
@@ -955,8 +889,8 @@ def corrupt_share(options):
         f = ShareFile(fn)
         bp = ReadBucketProxy(None, None, '')
         offsets = bp._parse_offsets(f.read_share_data(0, 0x24))
-        start = f._data_offset + offsets["data"]
-        end = f._data_offset + offsets["plaintext_hash_tree"]
+        start = f.DATA_OFFSET + offsets["data"]
+        end = f.DATA_OFFSET + offsets["plaintext_hash_tree"]
         flip_bit(start, end)
 
 
