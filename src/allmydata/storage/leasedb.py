@@ -304,7 +304,6 @@ class LeaseDB:
                              (si_s, ownerid))
         rows = self._cursor.fetchall()
         def _to_LeaseInfo(row):
-            print "row:", row
             (shnum, account_id, renewal_time, expiration_time) = tuple(row)
             return LeaseInfo(storage_index, int(shnum), int(account_id), float(renewal_time), float(expiration_time))
         return map(_to_LeaseInfo, rows)
