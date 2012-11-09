@@ -298,8 +298,9 @@ class Client(node.Node, pollmixin.PollMixin):
             ann = {}
             ann["permutation-seed-base32"] = self._init_permutation_seed(ss)
 
+            anonymous_account = self.accountant.get_anonymous_account()
             anonymous_account_furlfile = os.path.join(self.basedir, "private", "storage.furl").encode(get_filesystem_encoding())
-            anonymous_account_furl = self.tub.registerReference(ss, furlFile=anonymous_account_furlfile)
+            anonymous_account_furl = self.tub.registerReference(anonymous_account, furlFile=anonymous_account_furlfile)
             ann["anonymous-storage-FURL"] = anonymous_account_furl
 
             self.introducer_client.publish("storage", ann, self._server_key)
