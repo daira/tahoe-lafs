@@ -3070,7 +3070,6 @@ class AccountingCrawlerTest(unittest.TestCase, pollmixin.PollMixin, CrawlerTestM
             self.failUnlessEqual(lah, [ (0.0, DAY, 1) ] )
             self.failUnlessEqual(so_far["corrupt-shares"], [])
             sr1 = so_far["space-recovered"]
-            print "!!!", sr1
             self.failUnlessEqual(sr1["examined-buckets"], 1)
             self.failUnlessEqual(sr1["examined-shares"], 1)
             self.failUnlessEqual(sr1["actual-shares"], 0)
