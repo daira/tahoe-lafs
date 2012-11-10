@@ -1,8 +1,11 @@
 
+import time
+
 from foolscap.api import eventually, fireEventually
-from twisted.internet import defer
+from twisted.internet import defer, reactor
 
 from allmydata.util import log
+from allmydata.util.pollmixin import PollMixin
 
 
 # utility wrapper for DeferredList
@@ -154,3 +157,27 @@ def for_items(cb, mapping):
     for k, v in mapping.items():
         d.addCallback(lambda ign, k=k, v=v: cb(None, k, v))
     return d
+
+
+class WaitForDelayedCallsMixin(PollMixin):
+    def _delayed_calls_done(self):
+        # We're done when the only remaining DelayedCalls fire after threshold.
+        # (These will be associated with the test timeout.)
+        threshold = time.time() + 60
+        for delayed in reactor._pendingTimedCalls + reactor._newTimedCalls:
+            if delayed.getTime() < threshold:
+                return False
+        return True
+
+    def wait_for_delayed_calls(self, res=None):
+        """
+        Use like this at the end of a test:
+          d.addBoth(self.wait_for_delayed_calls)
+        """
+        if hasattr(reactor, '_pendingTimedCalls') and hasattr(reactor, '_newTimedCalls'):
+            d = self.poll(self._delayed_calls_done)
+            d.addErrback(log.err, "error while waiting for delayed calls")
+            d.addBoth(lambda ign: res)
+        else:
+            d = defer.succeed(res)
+        return d

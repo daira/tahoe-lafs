@@ -557,7 +557,7 @@ class PollMixinTests(unittest.TestCase):
         d.addCallbacks(_suc, _err)
         return d
 
-class DeferredUtilTests(unittest.TestCase):
+class DeferredUtilTests(unittest.TestCase, deferredutil.WaitForDelayedCallsMixin):
     def test_gather_results(self):
         d1 = defer.Deferred()
         d2 = defer.Deferred()
@@ -596,6 +596,19 @@ class DeferredUtilTests(unittest.TestCase):
         f = bad[0]
         self.failUnless(isinstance(f, Failure))
         self.failUnless(f.check(ValueError))
+
+    def test_wait_for_delayed_calls(self):
+        if not (hasattr(reactor, '_pendingTimedCalls') and hasattr(reactor, '_newTimedCalls')):
+            raise unittest.SkipTest("Can't run this test because Twisted reactor implementation has changed too much.")
+
+        def _trigger():
+            #print "trigger"
+            pass
+        reactor.callLater(0.1, _trigger)
+
+        d = defer.succeed(None)
+        d.addBoth(self.wait_for_delayed_calls)
+        return d
 
 class HashUtilTests(unittest.TestCase):
 
