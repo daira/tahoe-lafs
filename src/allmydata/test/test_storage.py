@@ -10,7 +10,7 @@ from foolscap.api import fireEventually
 import itertools
 
 from allmydata import interfaces
-from allmydata.util import fileutil, hashutil, base32, pollmixin, time_format
+from allmydata.util import fileutil, hashutil, base32, time_format
 from allmydata.storage.server import StorageServer
 from allmydata.storage.mutable import MutableShareFile
 from allmydata.storage.immutable import BucketWriter, BucketReader, ShareFile
@@ -29,7 +29,7 @@ from allmydata.mutable.layout import MDMFSlotWriteProxy, MDMFSlotReadProxy, \
                                      VERIFICATION_KEY_SIZE, \
                                      SHARE_HASH_CHAIN_SIZE
 from allmydata.interfaces import BadWriteEnablerError
-from allmydata.test.common import LoggingServiceParent, ShouldFailMixin
+from allmydata.test.common import LoggingServiceParent, ShouldFailMixin, CrawlerTestMixin
 from allmydata.test.common_util import ReallyEqualMixin
 from allmydata.test.common_web import WebRenderingMixin
 from allmydata.test.no_network import NoNetworkServer
@@ -2792,32 +2792,6 @@ def remove_tags(s):
     return s
 
 
-class CrawlerTestMixin:
-    def _wait_for_yield(self, res, crawler):
-        """
-        Wait for the crawler to yield. This should be called at the end of a test
-        so that we leave a clean reactor.
-        """
-        d = crawler.set_hook('yield')
-        d.addCallback(lambda ign: res)
-        return d
-
-    def _after_prefix(self, prefix, target_prefix, crawler):
-        """
-        Wait for the crawler to reach a given target_prefix. Return a deferred
-        for the crawler state at that point.
-        """
-        if prefix != target_prefix:
-            d = crawler.set_hook('after_prefix')
-            d.addCallback(self._after_prefix, target_prefix, crawler)
-            return d
-
-        crawler.save_state()
-        state = crawler.get_state()
-        self.failUnlessEqual(prefix, state["last-complete-prefix"])
-        return defer.succeed(state)
-
-
 class BucketCounterTest(unittest.TestCase, CrawlerTestMixin, ReallyEqualMixin):
 
     def setUp(self):
@@ -2954,7 +2928,7 @@ class BucketCounterTest(unittest.TestCase, CrawlerTestMixin, ReallyEqualMixin):
         return d
 
 
-class AccountingCrawlerTest(unittest.TestCase, pollmixin.PollMixin, CrawlerTestMixin, WebRenderingMixin, ReallyEqualMixin):
+class AccountingCrawlerTest(unittest.TestCase, CrawlerTestMixin, WebRenderingMixin, ReallyEqualMixin):
 
     def setUp(self):
         self.s = service.MultiService()
