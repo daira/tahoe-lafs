@@ -6,20 +6,6 @@ from allmydata.util import dbutil
 from allmydata.storage.common import si_b2a
 
 
-class BadAccountName(Exception):
-    pass
-
-
-class ShareAlreadyInDatabaseError(Exception):
-    def __init__(self, si_s, shnum):
-        Exception.__init__(self, si_s, shnum)
-        self.si_s = si_s
-        self.shnum = shnum
-
-    def __str__(self):
-        return "SI=%r shnum=%r is already in `shares` table" % (self.si_s, self.shnum)
-
-
 class NonExistentShareError(Exception):
     def __init__(self, si_s, shnum):
         Exception.__init__(self, si_s, shnum)
@@ -28,11 +14,6 @@ class NonExistentShareError(Exception):
 
     def __str__(self):
         return "can't find SI=%r shnum=%r in `shares` table" % (self.si_s, self.shnum)
-
-
-class NonExistentLeaseError(Exception):
-    # FIXME not used
-    pass
 
 
 class LeaseInfo(object):
@@ -162,21 +143,12 @@ class LeaseDB:
         si_s = si_b2a(storage_index)
         prefix = si_s[:2]
         if self.debug: print "ADD_NEW_SHARE", prefix, si_s, shnum, used_space, sharetype
-        self._dirty = True
-        try:
-            self._cursor.execute("INSERT INTO `shares`"
-                                 " VALUES (?,?,?,?,?,?,?)",
-                                 (si_s, shnum, prefix, None, used_space, sharetype, STATE_COMING))
-        except dbutil.IntegrityError:
-            # XXX: when test_repairer.Repairer.test_repair_from_deletion_of_1
-            # runs, it deletes the share from disk, then the repairer replaces it
-            # (in the same place). The add_new_share() code needs to tolerate
-            # surprises like this: the share might have been manually deleted,
-            # and the crawler may not have noticed it yet, so test for an existing
-            # entry and use it if present (and check the code paths carefully to
-            # make sure that doesn't get too weird).
-            # FIXME: check that the IntegrityError is really due to the share already existing.
-            raise ShareAlreadyInDatabaseError(si_s, shnum)
+        backend_key = None
+        # This needs to be an INSERT OR REPLACE because it is possible for add_new_share
+        # to be called when this share is already in the database (but not on disk).
+        self._cursor.execute("INSERT OR REPLACE INTO `shares`"
+                             " VALUES (?,?,?,?,?,?,?)",
+                             (si_s, shnum, prefix, backend_key, used_space, sharetype, STATE_COMING))
 
     def add_starter_lease(self, storage_index, shnum):
         si_s = si_b2a(storage_index)
