@@ -27,7 +27,6 @@ class Accountant(service.MultiService):
         self.storage_server = storage_server
         self._leasedb = LeaseDB(dbfile)
         self._active_accounts = weakref.WeakValueDictionary()
-        self._accountant_window = None
         self._anonymous_account = Account(LeaseDB.ANONYMOUS_ACCOUNTID, None,
                                           self.storage_server, self._leasedb)
         self._starter_account = Account(LeaseDB.STARTER_LEASE_ACCOUNTID, None,

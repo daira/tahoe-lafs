@@ -9,7 +9,7 @@ from allmydata.util.fileutil import get_used_space
 from allmydata.util import log
 from allmydata.storage.crawler import ShareCrawler
 from allmydata.storage.common import si_a2b
-from allmydata.storage.leasedb import SHARETYPES, SHARETYPE_UNKNOWN, ShareAlreadyInDatabaseError
+from allmydata.storage.leasedb import SHARETYPES, SHARETYPE_UNKNOWN
 
 
 class AccountingCrawler(ShareCrawler):
@@ -84,13 +84,8 @@ class AccountingCrawler(ShareCrawler):
             used_space = get_used_space(fp)
             # FIXME
             sharetype = SHARETYPE_UNKNOWN
-            try:
-                self._leasedb.add_new_share(si_a2b(si_s), shnum, used_space, sharetype)
-            except ShareAlreadyInDatabaseError:
-                # XXX log and ignore
-                raise
-            else:
-                self._leasedb.add_starter_lease(si_s, shnum)
+            self._leasedb.add_new_share(si_a2b(si_s), shnum, used_space, sharetype)
+            self._leasedb.add_starter_lease(si_s, shnum)
 
         # remove disappeared shares from DB
         disappeared_shares = db_shares - disk_shares
