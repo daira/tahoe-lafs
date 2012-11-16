@@ -436,6 +436,8 @@ class CrawlerTestMixin:
         Wait for the crawler to yield. This should be called at the end of a test
         so that we leave a clean reactor.
         """
+        if isinstance(res, failure.Failure):
+            print res
         d = crawler.set_hook('yield')
         d.addCallback(lambda ign: res)
         return d
