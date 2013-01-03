@@ -7,7 +7,12 @@ from allmydata.util import fileutil
 from allmydata.util.encodingutil import listdir_unicode, quote_output
 
 
+def format_twisted_options(config):
+    return "twistd %s\n" % (str(config).partition("\n")[2].partition("\n\n")[0],)
+
 class StartOptions(BasedirMixin, BaseOptions):
+    subcommand_name = "start"
+
     def parseArgs(self, basedir=None, *twistd_args):
         # this can't handle e.g. 'tahoe start --nodaemon', since then
         # --nodaemon looks like a basedir. So you can either use 'tahoe
@@ -19,21 +24,22 @@ class StartOptions(BasedirMixin, BaseOptions):
         self.twistd_args = twistd_args
 
     def getSynopsis(self):
-        return "Usage:  %s start [options] [NODEDIR]" % (self.command_name,)
+        return "Usage:  %s %s [options] [NODEDIR] [twistd_options]" % (self.command_name, self.subcommand_name)
 
+    def getUsage(self, width=None):
+        t = BaseOptions.getUsage(self, width) + "\n"
+        t += format_twisted_options(MyTwistdConfig())
+        return t
+
+class RestartOptions(StartOptions):
+    subcommand_name = "restart"
+
+class RunOptions(StartOptions):
+    subcommand_name = "run"
 
 class StopOptions(BasedirMixin, BaseOptions):
     def getSynopsis(self):
         return "Usage:  %s stop [options] [NODEDIR]" % (self.command_name,)
-
-
-class RestartOptions(StartOptions):
-    def getSynopsis(self):
-        return "Usage:  %s restart [options] [NODEDIR]" % (self.command_name,)
-
-class RunOptions(StartOptions):
-    def getSynopsis(self):
-        return "Usage:  %s run [options] [NODEDIR]" % (self.command_name,)
 
 
 class MyTwistdConfig(twistd.ServerOptions):
@@ -110,8 +116,9 @@ def start(config, out=sys.stdout, err=sys.stderr):
         twistd_config.parseOptions(twistd_args)
     except usage.error, ue:
         # these arguments were unsuitable for 'twistd'
-        print >>err, twistd_config
-        print >>err, "tahoe start: %s" % (config.subCommand, ue)
+        print >>err, config
+        print >>err, format_twisted_options(twistd_config)
+        print >>err, "tahoe %s: %s\n" % (config.subcommand_name, ue)
         return 1
     twistd_config.loadedPlugins = {"StartTahoeNode": StartTahoeNodePlugin(nodetype, basedir)}
 
