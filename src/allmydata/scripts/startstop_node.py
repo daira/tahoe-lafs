@@ -37,10 +37,10 @@ class RunOptions(StartOptions):
 
 
 class MyTwistdConfig(twistd.ServerOptions):
-    subCommands = [("XYZ", None, usage.Options, "node")]
+    subCommands = [("StartTahoeNode", None, usage.Options, "node")]
 
-class NodeStartingPlugin:
-    tapname = "xyznode"
+class StartTahoeNodePlugin:
+    tapname = "tahoenode"
     def __init__(self, nodetype, basedir):
         self.nodetype = nodetype
         self.basedir = basedir
@@ -103,7 +103,7 @@ def start(config, out=sys.stdout, err=sys.stderr):
         fileutil.make_dirs(os.path.join(basedir, "logs"))
         twistd_args.extend(["--logfile", os.path.join("logs", "twistd.log")])
     twistd_args.extend(config.twistd_args)
-    twistd_args.append("XYZ") # point at our NodeStartingPlugin
+    twistd_args.append("StartTahoeNode") # point at our StartTahoeNodePlugin
 
     twistd_config = MyTwistdConfig()
     try:
@@ -113,7 +113,7 @@ def start(config, out=sys.stdout, err=sys.stderr):
         print >>err, twistd_config
         print >>err, "tahoe start: %s" % (config.subCommand, ue)
         return 1
-    twistd_config.loadedPlugins = {"XYZ": NodeStartingPlugin(nodetype, basedir)}
+    twistd_config.loadedPlugins = {"StartTahoeNode": StartTahoeNodePlugin(nodetype, basedir)}
 
     # Unless --nodaemon was provided, the twistd.runApp() below spawns off a
     # child process, and the parent calls os._exit(0), so there's no way for
