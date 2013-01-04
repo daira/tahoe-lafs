@@ -496,33 +496,37 @@ class FileDownloader(rend.Page):
 
 
 def FileJSONMetadata(ctx, filenode, edge_metadata):
-    rw_uri = filenode.get_write_uri()
-    ro_uri = filenode.get_readonly_uri()
-    data = ("filenode", {})
-    data[1]['size'] = filenode.get_size()
-    if ro_uri:
-        data[1]['ro_uri'] = ro_uri
-    if rw_uri:
-        data[1]['rw_uri'] = rw_uri
-    verifycap = filenode.get_verify_cap()
-    if verifycap:
-        data[1]['verify_uri'] = verifycap.to_string()
-    data[1]['mutable'] = filenode.is_mutable()
-    if edge_metadata is not None:
-        data[1]['metadata'] = edge_metadata
+    d = filenode.get_current_size()
+    def _got_size(size):
+        data = ("filenode", {})
+        data[1]['size'] = size
+        rw_uri = filenode.get_write_uri()
+        ro_uri = filenode.get_readonly_uri()
+        if ro_uri:
+            data[1]['ro_uri'] = ro_uri
+        if rw_uri:
+            data[1]['rw_uri'] = rw_uri
+        verifycap = filenode.get_verify_cap()
+        if verifycap:
+            data[1]['verify_uri'] = verifycap.to_string()
+        data[1]['mutable'] = filenode.is_mutable()
+        if edge_metadata is not None:
+            data[1]['metadata'] = edge_metadata
 
-    if filenode.is_mutable():
-        mutable_type = filenode.get_version()
-        assert mutable_type in (SDMF_VERSION, MDMF_VERSION)
-        if mutable_type == MDMF_VERSION:
-            file_format = "MDMF"
+        if filenode.is_mutable():
+            mutable_type = filenode.get_version()
+            assert mutable_type in (SDMF_VERSION, MDMF_VERSION)
+            if mutable_type == MDMF_VERSION:
+                file_format = "MDMF"
+            else:
+                file_format = "SDMF"
         else:
-            file_format = "SDMF"
-    else:
-        file_format = "CHK"
-    data[1]['format'] = file_format
+            file_format = "CHK"
+        data[1]['format'] = file_format
 
-    return text_plain(simplejson.dumps(data, indent=1) + "\n", ctx)
+        return text_plain(simplejson.dumps(data, indent=1) + "\n", ctx)
+    d.addCallback(_got_size)
+    return d
 
 def FileURI(ctx, filenode):
     return text_plain(filenode.get_uri(), ctx)
