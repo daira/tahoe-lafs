@@ -896,6 +896,9 @@ def DirectoryJSONMetadata(ctx, dirnode):
                 kiddata = ("filenode", {'size': childnode.get_size(),
                                         'mutable': childnode.is_mutable(),
                                         })
+                if kiddata[1]['size'] is None:
+                    del kiddata[1]['size']
+
                 if childnode.is_mutable():
                     mutable_type = childnode.get_version()
                     assert mutable_type in (SDMF_VERSION, MDMF_VERSION)
