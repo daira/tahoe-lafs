@@ -15,7 +15,7 @@ SOURCES=src/allmydata src/buildtest static misc bin/tahoe-script.template twiste
 .PHONY: make-version build
 
 # This is necessary only if you want to automatically produce a new
-# _version.py file from the current git/darcs history.
+# _version.py file from the current version control history.
 make-version:
 	$(PYTHON) ./setup.py update_version
 
@@ -26,7 +26,7 @@ src/allmydata/_version.py:
 	$(MAKE) make-version
 
 # It is unnecessary to have this depend on build or src/allmydata/_version.py,
-# since 'setup.py build' always updates the version using 'darcsver --count-all-patches'.
+# since 'setup.py build' always runs the update_version command first.
 build:
 	$(PYTHON) setup.py build
 	touch .built
@@ -108,7 +108,7 @@ coverage-output:
 
 .PHONY: upload-coverage .coverage.el pyflakes count-lines
 .PHONY: check-memory check-memory-once check-speed check-grid
-.PHONY: repl test-darcs-boringfile test-clean clean find-trailing-spaces
+.PHONY: repl test-git-ignore test-clean clean find-trailing-spaces
 
 .coverage.el: .coverage
 	$(PYTHON) misc/coding_tools/coverage2el.py
@@ -226,25 +226,22 @@ run-provisioning-tool: .built
 repl:
 	$(TAHOE) debug repl
 
-test-darcs-boringfile:
-	$(MAKE)
-	$(PYTHON) misc/build_helpers/test-darcs-boringfile.py
-
 test-git-ignore:
 	$(MAKE)
 	$(PYTHON) misc/build_helpers/test-git-ignore.py
 
 test-clean:
-	find . |grep -vEe "_darcs|allfiles.tmp|src/allmydata/_(version|appname).py" |sort >allfiles.tmp.old
+	find . |grep -vEe ".git|_darcs|allfiles.tmp|src/allmydata/_(version|appname).py" |sort >allfiles.tmp.old
 	$(MAKE)
 	$(MAKE) clean
-	find . |grep -vEe "_darcs|allfiles.tmp|src/allmydata/_(version|appname).py" |sort >allfiles.tmp.new
+	find . |grep -vEe ".git|_darcs|allfiles.tmp|src/allmydata/_(version|appname).py" |sort >allfiles.tmp.new
 	diff allfiles.tmp.old allfiles.tmp.new
 
 # It would be nice if 'make clean' deleted any automatically-generated
 # _version.py too, so that 'make clean; make all' could be useable as a
 # "what the heck is going on, get me back to a clean state', but we need
-# 'make clean' to work on non-darcs trees without destroying useful information.
+# 'make clean' to work on trees that are not checked out from version
+# control without destroying useful information.
 clean:
 	rm -rf build _trial_temp _test_memory .built
 	rm -f `find src *.egg -name '*.so' -or -name '*.pyc'`

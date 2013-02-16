@@ -72,8 +72,7 @@ __requires__ = install_requires[:]
 
 egg = os.path.realpath(glob.glob('setuptools-*.egg')[0])
 sys.path.insert(0, egg)
-egg = os.path.realpath(glob.glob('darcsver-*.egg')[0])
-sys.path.insert(0, egg)
+
 import setuptools; setuptools.bootstrap_install_from = egg
 
 from setuptools import setup
@@ -119,20 +118,6 @@ trove_classifiers=[
 
 
 setup_requires = []
-
-# The darcsver command from the darcsver plugin is needed to initialize the
-# distribution's .version attribute correctly. (It does this either by
-# examining darcs history, or if that fails by reading the
-# src/allmydata/_version.py file). darcsver will also write a new version
-# stamp in src/allmydata/_version.py, with a version number derived from
-# darcs history. Note that the setup.cfg file has an "[aliases]" section
-# which enumerates commands that you might run and specifies that it will run
-# darcsver before each one. If you add different commands (or if I forgot
-# some that are already in use), you may need to add it to setup.cfg and
-# configure it to run darcsver before your command, if you want the version
-# number to be correct when that command runs.
-# http://pypi.python.org/pypi/darcsver
-setup_requires.append('darcsver >= 1.7.2')
 
 # Nevow imports itself when building, which causes Twisted and zope.interface
 # to be imported. We need to make sure that the versions of Twisted and
