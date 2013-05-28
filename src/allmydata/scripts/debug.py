@@ -996,6 +996,13 @@ Tahoe-LAFS. The default test suite is '%s'.
 def trial(config):
     sys.argv = ['trial'] + config.trial_args
 
+    from allmydata._version import full_version
+    if full_version.endswith("-dirty"):
+        print "WARNING: the source tree has been modified since the last commit."
+        print "(It is usually preferable to commit, then test, then amend the"
+        print "commit(s) if the tests fail.)"
+        print
+
     # This does not return.
     twisted_trial.run()
 
