@@ -1,20 +1,21 @@
 
 import simplejson
+
 from twisted.web import http, server
 from twisted.python import log
+from twisted.python.filepath import FilePath
+from twisted.python.failure import Failure
+
 from zope.interface import Interface
-from nevow import loaders, appserver, url
-from nevow import tags as T
-from nevow.rend import Page
-from nevow.static import File
-from nevow.inevow import IRequest, IData, ICanHandleException
+from nevow import appserver
+from nevow.inevow import IData, ICanHandleException
 from nevow.util import resource_filename, escapeToXML
-#from twisted.web.resource import Resource as Page
-#from twisted.web.static import File
-#from twisted.web.iweb import IRequest
-#from twisted.web.template import renderer
-#from twisted.web.template import tags as T
-#from allmydata.util import url
+from twisted.web.resource import Resource
+from twisted.web.static import File
+from twisted.web.iweb import IRequest
+from twisted.web.template import renderer, XMLFile
+from twisted.web.template import tags as T
+from allmydata.util import url
 
 from allmydata import blacklist
 from allmydata.interfaces import ExistingChildError, NoSuchChildError, \
@@ -26,8 +27,23 @@ from allmydata.util import abbreviate
 from allmydata.util.encodingutil import to_str, quote_output
 
 
-def renderer(func):
-    return func
+class Page(Resource):
+    _MARKER = object()
+
+    def __init__(self, *args):
+        Resource.__init__(self)
+
+    def renderSynchronously(self, ctx=None):
+        result = self._MARKER
+        d = self.renderString(ctx)
+        def _got_it(x):
+            result = x
+        d.addBoth(_got_it)
+        if result == _MARKER:
+            raise NotImplementedError("renderSynchronously can not support rendering")
+        if isinstance(f, Failure):
+            f.raiseException()
+        return result
 
 
 TIME_FORMAT = "%H:%M:%S %d-%b-%Y"
@@ -37,7 +53,7 @@ class IOpHandleTable(Interface):
     pass
 
 def getxmlfile(name):
-    return loaders.xmlfile(resource_filename('allmydata.web', '%s' % name))
+    return XMLFile(FilePath(resource_filename('allmydata.web', '%s' % name)))
 
 def boolean_of_arg(arg):
     # TODO: ""
