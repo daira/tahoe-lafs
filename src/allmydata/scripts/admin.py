@@ -101,6 +101,53 @@ def do_create_container(options):
     return d
 
 
+class ListContainerOptions(BasedirOptions):
+    def getSynopsis(self):
+        return "Usage: %s [global-opts] admin ls-container [NODEDIR]" % (self.command_name,)
+
+    def getUsage(self, width=None):
+        t = BasedirOptions.getUsage(self, width)
+        t += """
+List the contents of a storage container, using the name and credentials
+configured in tahoe.cfg. This currently works only for the cloud backend.
+"""
+        return t
+
+def ls_container(options):
+    from twisted.internet import reactor, defer
+
+    d = defer.maybeDeferred(do_ls_container, options)
+    d.addCallbacks(lambda ign: os._exit(0), lambda ign: os._exit(1))
+    reactor.run()
+
+def do_ls_container(options):
+    from twisted.internet import defer
+    from allmydata.node import ConfigOnly
+    from allmydata.client import Client
+
+    out = options.stdout
+    err = options.stderr
+
+    d = defer.succeed(None)
+    def _do_create(ign):
+        config = ConfigOnly(options['basedir'])
+        (backend, _) = Client.configure_backend(config)
+
+        d2 = backend.list_container()
+        def _done(res):
+            print >>out, "blah"
+        d2.addCallback(_done)
+        return d2
+    d.addCallback(_do_create)
+    def _failed(f):
+        print >>err, "Container listing failed."
+        print >>err, "%s: %s" % (f.value.__class__.__name__, f.value)
+        print >>err
+        return f
+    d.addErrback(_failed)
+    return d
+
+
 class AdminCommand(BaseOptions):
     subCommands = [
         ("generate-keypair", None, GenerateKeypairOptions,
@@ -109,6 +156,8 @@ class AdminCommand(BaseOptions):
          "Derive a public key from a private key."),
         ("create-container", None, CreateContainerOptions,
          "Create a container for the configured cloud backend."),
+        ("ls-container", None, ListContainerOptions,
+         "List the contents of the configured backend container."),
         ]
     def postOptions(self):
         if not hasattr(self, 'subOptions'):
@@ -127,6 +176,7 @@ subDispatch = {
     "generate-keypair": print_keypair,
     "derive-pubkey": derive_pubkey,
     "create-container": create_container,
+    "ls-container": ls_container,
     }
 
 def do_admin(options):
