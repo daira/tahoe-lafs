@@ -273,6 +273,7 @@ class QueueMixin(HookMixin):
 
     def _log(self, msg):
         s = "Magic Folder %s %s: %s" % (quote_output(self._client.nickname), self._name, msg)
+        print s
         self._client.log(s)
 
 
